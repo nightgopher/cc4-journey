@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "cc4": {
+      "command": "/Users/weijian/Desktop/ai-fde/cc4-journey/app/bin/cc4-mcp",
+      "env": {
+        "DB_HOST": "localhost",
+        "DB_PORT": "5433",
+        "DB_NAME": "callcenter_db",
+        "DB_USER": "root",
+        "DB_PASSWORD": "15671040800q"
+      }
+    }
+  }
+}
