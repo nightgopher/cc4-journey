@@ -1,0 +1,321 @@
+{
+  "version": 1,
+  "note": "金标准用例 v1。期望值来自 design.md 已确认规则；disputed 场景待 D1/D6/D4 裁决后转为 confirmed。",
+  "cases": [
+    {
+      "id": "G01",
+      "group": "daily_commission",
+      "name": "边界-1单",
+      "input": {
+        "orders": 1
+      },
+      "expect": {
+        "commission": 10
+      },
+      "status": "confirmed"
+    },
+    {
+      "id": "G02",
+      "group": "daily_commission",
+      "name": "边界-3单",
+      "input": {
+        "orders": 3
+      },
+      "expect": {
+        "commission": 30
+      },
+      "status": "confirmed"
+    },
+    {
+      "id": "G03",
+      "group": "daily_commission",
+      "name": "边界-5单",
+      "input": {
+        "orders": 5
+      },
+      "expect": {
+        "commission": 70
+      },
+      "status": "confirmed"
+    },
+    {
+      "id": "G04",
+      "group": "daily_commission",
+      "name": "高产-8单",
+      "input": {
+        "orders": 8
+      },
+      "expect": {
+        "commission": 160
+      },
+      "status": "confirmed"
+    },
+    {
+      "id": "G05",
+      "group": "c_level_salary",
+      "name": "3天内转正",
+      "input": {
+        "level": "c_level",
+        "cLevelWorkdaysThisMonth": 3,
+        "totalCLevelWorkdaysBeforeMonth": 0
+      },
+      "expect": {
+        "baseSalary": 90
+      },
+      "status": "confirmed"
+    },
+    {
+      "id": "G06",
+      "group": "c_level_salary",
+      "name": "宽限期白干",
+      "input": {
+        "level": "c_level",
+        "cLevelWorkdaysThisMonth": 5,
+        "totalCLevelWorkdaysBeforeMonth": 0
+      },
+      "expect": {
+        "baseSalary": 90
+      },
+      "status": "confirmed"
+    },
+    {
+      "id": "G07",
+      "group": "c_level_salary",
+      "name": "跨月续领",
+      "input": {
+        "level": "c_level",
+        "cLevelWorkdaysThisMonth": 2,
+        "totalCLevelWorkdaysBeforeMonth": 1
+      },
+      "expect": {
+        "baseSalary": 60
+      },
+      "status": "confirmed"
+    },
+    {
+      "id": "G08",
+      "group": "b_level_salary",
+      "name": "月中晋升跨月-文档口径",
+      "input": {
+        "level": "b_level",
+        "promotionMonth": "2025-10",
+        "workdaysByMonth": {
+          "2025-10": [
+            "10-26",
+            "10-29",
+            "10-30"
+          ],
+          "2025-11": [
+            "11-03",
+            "11-04",
+            "11-05",
+            "11-06",
+            "11-07"
+          ]
+        },
+        "policy": "total_allowance"
+      },
+      "expect": {
+        "2025-10": {
+          "baseSalary": 264
+        },
+        "2025-11": {
+          "baseSalary": 264
+        }
+      },
+      "status": "confirmed"
+    },
+    {
+      "id": "G09",
+      "group": "b_level_salary",
+      "name": "旧引擎对照-D1",
+      "input": {
+        "level": "b_level",
+        "promotionMonth": "2025-10",
+        "workdaysByMonth": {
+          "2025-10": [
+            "10-26",
+            "10-29",
+            "10-30"
+          ],
+          "2025-11": [
+            "11-03",
+            "11-04",
+            "11-05",
+            "11-06",
+            "11-07"
+          ]
+        },
+        "policy": "monthly_reset"
+      },
+      "expect": {
+        "2025-10": {
+          "baseSalary": 264
+        },
+        "2025-11": {
+          "baseSalary": 528
+        }
+      },
+      "status": "disputed",
+      "disputeRef": "D1",
+      "note": "期望值 = 旧 JS 引擎实际行为（每月重置 6 天）。用于差分展示，不是目标口径。"
+    },
+    {
+      "id": "G10",
+      "group": "a_level_salary",
+      "name": "全勤高产",
+      "input": {
+        "level": "a_level",
+        "totalWorkdays": 26,
+        "attendanceDays": 26,
+        "monthlyOrders": 130,
+        "dailyOrderSeries": [
+          8,
+          6,
+          7,
+          5,
+          6,
+          8,
+          5,
+          6,
+          7,
+          8,
+          5,
+          6,
+          7,
+          5,
+          6,
+          8,
+          5,
+          6,
+          7,
+          8,
+          5,
+          6,
+          5,
+          5,
+          5,
+          5
+        ]
+      },
+      "expect": {
+        "baseSalary": 2200,
+        "fullAttendanceBonus": 400,
+        "performanceBonus": 1000
+      },
+      "status": "confirmed",
+      "note": "26 工作日全勤（≥25 触发全勤奖）；对比 G11 短月规则。"
+    },
+    {
+      "id": "G11",
+      "group": "a_level_salary",
+      "name": "请假折算-无全勤",
+      "input": {
+        "level": "a_level",
+        "totalWorkdays": 22,
+        "attendanceDays": 18,
+        "monthlyOrders": 80,
+        "dailyOrderSeries": [
+          5,
+          4,
+          3,
+          4,
+          5,
+          3,
+          4,
+          5,
+          3,
+          4,
+          5,
+          3,
+          4,
+          5,
+          3,
+          4,
+          5,
+          3
+        ]
+      },
+      "expect": {
+        "baseSalary": 1800,
+        "fullAttendanceBonus": 0,
+        "performanceBonus": 300
+      },
+      "status": "confirmed"
+    },
+    {
+      "id": "G12",
+      "group": "level_transition",
+      "name": "C晋B边界",
+      "input": {
+        "level": "c_level",
+        "cLevelWorkdays": 3,
+        "recentOrders": [
+          1,
+          1,
+          1
+        ]
+      },
+      "expect": {
+        "targetState": "pending_promotion"
+      },
+      "status": "confirmed"
+    },
+    {
+      "id": "G13",
+      "group": "level_transition",
+      "name": "C淘汰边界",
+      "input": {
+        "level": "c_level",
+        "cLevelWorkdays": 7,
+        "recentOrders": [
+          1,
+          1,
+          0
+        ]
+      },
+      "expect": {
+        "targetState": "suggested_elimination"
+      },
+      "status": "disputed",
+      "disputeRef": "D6",
+      "note": "文档口径：第6天结束时判淘汰，第7天执行。代码口径：>6 才触发。期望值按文档口径预置。"
+    },
+    {
+      "id": "G14",
+      "group": "level_transition",
+      "name": "A降级-等于12也降",
+      "input": {
+        "level": "a_level",
+        "recentOrders": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          2
+        ]
+      },
+      "expect": {
+        "targetState": "demoted_to_c"
+      },
+      "status": "confirmed",
+      "note": "≤12 即降，钉死等号边界。"
+    },
+    {
+      "id": "G15",
+      "group": "level_transition",
+      "name": "A零业绩特例",
+      "input": {
+        "level": "a_level",
+        "recentOrders": null
+      },
+      "expect": {
+        "targetState": "keep_a_pending_approval"
+      },
+      "status": "disputed",
+      "disputeRef": "D4",
+      "note": "期望值按裁决建议预置：零业绩不自动降级，转人工审批。旧代码行为是直接降级，差分展示用。"
+    }
+  ]
+}
