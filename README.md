@@ -43,3 +43,25 @@ cc4-journey/
 ## 与既有系统的关系
 
 本仓库是全新从 0 开始的演练，不基于 `cc/`（Call Center 4.0 存量实现）。既有系统的业务规则可作为领域参考，但代码、决策与文档全部重新产生，用于演示「需求 → 交付」的完整路径。
+
+## 相关仓库：nightgopher/cc4-callcenter（存量系统，脱敏开源）
+
+存量系统 Call Center 4.0 已单独整理开源：**https://github.com/nightgopher/cc4-callcenter**
+
+两仓库关系与区别，务必区分清楚：
+
+| | cc4-journey（本仓库） | cc4-callcenter |
+|-|-|-|
+| 定位 | **从 0 到 1 的研发过程演练**：模糊需求 → 澄清 → PRD → 开发 → 部署，全程留痕 | **已有系统的成品代码**：一个功能完整的电销管理系统 |
+| 起点 | 一段客户口述（见 journey/00） | 已运行的生产系统快照 |
+| 代码来源 | 演练过程中新写 | 直接来自实际项目（Express + PostgreSQL + React） |
+| 演示中的角色 | 主角：展示 AI 研发全流程 | 参照物：提供真实业务规则背景（等级体系、薪资计算、线索流转等，见其 design.md） |
+
+**引用方式**：演练中做需求澄清、PRD 设计时，cc4-callcenter 的 `design.md`（1375 行业务全景文档）可作为领域知识参考——但仅作参考，本仓库的决策与产物一律独立产生，不回填、不依赖。
+
+**脱敏说明**（cc4-callcenter 已做的处理）：
+
+- 真实数据库/MinIO 密码、生产服务器 IP 全部替换为 `CHANGE_ME_PASSWORD` / `SERVER_IP_PLACEHOLDER` 占位符
+- `.env`、`.env.production` 不提交，提供 `.env.example` 模板
+- 含真实客户数据（手机号、员工名单）的 `backup.sql.gz` 与批量导入脚本已移除
+- `node_modules`、IDE 配置、运行日志不入库
