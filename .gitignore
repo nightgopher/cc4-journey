@@ -1,1 +1,3 @@
 app/bin/
+node_modules/
+app/web/dist/
