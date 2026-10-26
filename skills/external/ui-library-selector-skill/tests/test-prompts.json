@@ -1,0 +1,151 @@
+{
+  "version": 2,
+  "purpose": "Forward-test triggering, product-surface decomposition, layered routing, and evidence-backed library selection without loading unrelated component catalogs.",
+  "cases": [
+    {
+      "id": "zh-colloquial-polish",
+      "prompt": "这个页面不好看，帮我改高级一点，交互也顺一点。",
+      "expected": {
+        "trigger": true,
+        "must": ["inspect the existing project", "resolve the UI type", "compare existing components with candidates"],
+        "must_not": ["install before inspection", "crawl every library"]
+      }
+    },
+    {
+      "id": "mid-conversation-layout-change",
+      "prompt": "前面的接口先不动。现在把当前页面布局重新做一下，移动端也要好用。",
+      "expected": {
+        "trigger": true,
+        "must": ["activate in this turn", "inspect current components", "consider responsive quality"],
+        "must_not": ["claim skills only trigger at conversation start"]
+      }
+    },
+    {
+      "id": "landing-page",
+      "prompt": "做一个克制但有记忆点的 AI SaaS 首页，允许少量动效。",
+      "expected": {
+        "trigger": true,
+        "ui_type": "landing page",
+        "must": ["one behavior foundation for the surface", "at most one effect source", "hero and marketing categories"],
+        "must_not": ["use an enterprise library as the visual base", "combine multiple effect libraries"]
+      }
+    },
+    {
+      "id": "multi-surface-portfolio-admin",
+      "prompt": "为我的个人品牌做一套 React 网站：访客能看个人介绍、项目和博客，我登录后还能管理文章、项目与媒体。公开站要独特、有科技感和哇塞动效；后台要自定义外观，但表单、CRUD、稳定性和无障碍优先。两部分可以独立选型。现在只做方案，不安装。",
+      "expected": {
+        "trigger": true,
+        "surface_count": 2,
+        "must": [
+          "separate the public portfolio and authenticated admin before selecting sources",
+          "assign objective weights totaling 100 percent per surface",
+          "report behavior foundation, visual effect source, and motion orchestration per surface",
+          "evaluate React Bits as a mandatory public effect source",
+          "shortlist Threads, LiquidEther, and Dither and require search, view, and dry-run evidence",
+          "evaluate Radix UI or the existing accessible primitives for the custom admin behavior foundation",
+          "use Motion for React only for coordinated public page and scroll motion",
+          "mark exact effect winner and rendered evidence as provisional or pending"
+        ],
+        "must_not": [
+          "choose one global primary library for both surfaces",
+          "let admin stability suppress the public visual objective",
+          "use React Bits as the admin behavior foundation",
+          "emit install commands without a target project",
+          "claim rendered wow quality without rendered evidence"
+        ]
+      }
+    },
+    {
+      "id": "explicit-wow-effect-gate",
+      "prompt": "给我的 React 作品集做一个真正有视觉记忆点、科技感和哇塞感的首屏。现在只选材料，不安装。",
+      "expected": {
+        "trigger": true,
+        "ui_type": "portfolio/showcase",
+        "must": [
+          "treat effect-source evaluation as mandatory",
+          "inspect at least three relevant candidates when available",
+          "require source, dependency, mobile, reduced-motion, static fallback, and rendered evidence",
+          "keep the final component choice provisional until live inspection"
+        ],
+        "must_not": [
+          "default to no effect source",
+          "select none without performance, accessibility, or brand-fit evidence",
+          "emit install commands without a target project"
+        ]
+      }
+    },
+    {
+      "id": "admin-data-heavy",
+      "prompt": "重做后台用户管理页，要高级筛选、批量操作、虚拟滚动和可访问性。",
+      "expected": {
+        "trigger": true,
+        "ui_type": "admin data-heavy",
+        "must": ["evaluate Ant Design, MUI X, PrimeReact, or the existing enterprise system", "search data grid and filtering categories"],
+        "must_not": ["use React Bits as the behavior foundation"]
+      }
+    },
+    {
+      "id": "existing-shadcn-project",
+      "prompt": "项目已经有 components.json。给设置页加一个账号删除确认流程，优先复用现有组件。",
+      "expected": {
+        "trigger": true,
+        "must": ["inspect installed shadcn components", "route current API details to official shadcn tooling", "preview before adding"],
+        "must_not": ["add a second behavior foundation"]
+      }
+    },
+    {
+      "id": "better-than-existing",
+      "prompt": "这个手搓下拉框能用，但键盘操作很差。有没有质量更好的组件？",
+      "expected": {
+        "trigger": true,
+        "must": ["apply the better-than-existing test", "prioritize accessibility and focus behavior"],
+        "must_not": ["keep it only because it technically works"]
+      }
+    },
+    {
+      "id": "library-comparison",
+      "prompt": "React Bits 和 shadcn/ui 在这个作品集项目里应该怎么分工？",
+      "expected": {
+        "trigger": true,
+        "must": ["treat shadcn as primary primitives", "treat React Bits as optional visual polish", "explain tradeoffs"],
+        "must_not": ["claim they are the same kind of library"]
+      }
+    },
+    {
+      "id": "read-and-wait",
+      "prompt": "阅读这份 UI 规范文档，等待我的下一步指令。",
+      "expected": {
+        "trigger": false,
+        "must": ["read only"],
+        "must_not": ["select a library", "install dependencies"]
+      }
+    },
+    {
+      "id": "mere-ui-mention",
+      "prompt": "这份总结里提到了 UI、后端和部署。帮我改一下错别字。",
+      "expected": {
+        "trigger": false,
+        "must": ["edit text only"],
+        "must_not": ["start UI library selection"]
+      }
+    },
+    {
+      "id": "trivial-css-change",
+      "prompt": "把这个按钮的 margin-top 从 8px 改成 12px，其他不要动。",
+      "expected": {
+        "trigger": false,
+        "must": ["make the scoped CSS change"],
+        "must_not": ["recommend a component library"]
+      }
+    },
+    {
+      "id": "non-react-implementation",
+      "prompt": "给这个原生 iOS SwiftUI 页面换一套组件库并直接实现。",
+      "expected": {
+        "trigger": false,
+        "must": ["use a platform-appropriate workflow"],
+        "must_not": ["install React UI packages"]
+      }
+    }
+  ]
+}
