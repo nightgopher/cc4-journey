@@ -50,6 +50,8 @@ func Router(jwtSecret string) http.Handler {
 
 			r.Get("/daily-performance", h.listPerformance)
 			r.Get("/daily-performance/calendar", h.performanceCalendar)
+			r.Post("/daily-performance", h.submitPerformance)
+			r.Post("/daily-performance/order-details/{id}/approve", h.approveOrderDetail)
 
 			r.Get("/salary", h.listSalary)
 			r.Post("/salary/calculate", h.calculateSalary)
@@ -593,4 +595,78 @@ func (h *apiHandler) checkLevelTransitions(w http.ResponseWriter, r *http.Reques
 
 func (h *apiHandler) triggerLevelCheck(w http.ResponseWriter, r *http.Request) {
 	h.checkLevelTransitions(w, r)
+}
+
+// ---- 业绩录入与审核（P0 写路径）----
+
+func (h *apiHandler) submitPerformance(w http.ResponseWriter, r *http.Request) {
+	uid, role := mustUser(r.Context())
+	// 对齐旧通道权限：admin/hr/manager（employee 自录走 pending_approval 明细，此处对齐管理员分支）
+	if role != "admin" && role != "hr" && role != "manager" && role != "workplace_manager" {
+		writeErr(w, http.StatusForbidden, "无权限代录业绩（employee 请走自录通道）")
+		return
+	}
+	var body struct {
+		EmployeeID  int     `json:"employeeId"`
+		WorkDate    string  `json:"workDate"`
+		ProductID   *int    `json:"productId,omitempty"`
+		Orders      int     `json:"orders"`
+		SalesAmount float64 `json:"salesAmount,omitempty"`
+		WorkPeriod  string  `json:"workPeriod,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.EmployeeID == 0 || body.WorkDate == "" {
+		writeErr(w, http.StatusBadRequest, "缺少必要参数：employeeId/workDate/orders")
+		return
+	}
+	result, err := service.SubmitPerformance(r.Context(), service.SubmitPerformanceInput{
+		EmployeeID: body.EmployeeID, WorkDate: body.WorkDate,
+		ProductID: body.ProductID, Orders: body.Orders,
+		SalesAmount: body.SalesAmount, WorkPeriod: body.WorkPeriod,
+		SubmittedBy: uid, Channel: "api",
+	})
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"message": "每日业绩记录创建成功", "dailyPerformance": result, "needsApproval": false,
+	})
+}
+
+func (h *apiHandler) approveOrderDetail(w http.ResponseWriter, r *http.Request) {
+	uid, role := mustUser(r.Context())
+	if role != "admin" && role != "hr" && role != "manager" && role != "workplace_manager" {
+		writeErr(w, http.StatusForbidden, "无权限审核业绩")
+		return
+	}
+	detailID, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "无效的明细ID")
+		return
+	}
+	var body struct {
+		Approved        bool   `json:"approved"`
+		RejectionReason string `json:"rejectionReason,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeErr(w, http.StatusBadRequest, "请求参数错误")
+		return
+	}
+	if !body.Approved && body.RejectionReason == "" {
+		writeErr(w, http.StatusBadRequest, "驳回必须提供 rejectionReason")
+		return
+	}
+	approverEmp := 0
+	if emp, e := repo.GetEmployeeByUserID(r.Context(), uid); e == nil {
+		approverEmp = emp.ID
+	}
+	result, err := service.ApproveOrderDetail(r.Context(), detailID, body.Approved, body.RejectionReason, approverEmp)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"message": map[bool]string{true: "订单审批已通过", false: "订单审批已拒绝"}[body.Approved],
+		"result":  result,
+	})
 }

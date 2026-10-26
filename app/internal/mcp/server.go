@@ -211,6 +211,66 @@ func fallbackWorkdays(year, month int) []int {
 	return out
 }
 
+type PerformanceSubmitIn struct {
+	EmployeeID  int     `json:"employeeId" jsonschema:"员工ID"`
+	WorkDate    string  `json:"workDate" jsonschema:"工作日期 YYYY-MM-DD"`
+	ProductID   *int    `json:"productId,omitempty" jsonschema:"产品ID（提供则走产品分档提成；缺省走日汇总公式）"`
+	Orders      int     `json:"orders" jsonschema:"订单数（>0）"`
+	SalesAmount float64 `json:"salesAmount,omitempty" jsonschema:"销售额（无产品ID时使用）"`
+	WorkPeriod  string  `json:"workPeriod,omitempty" jsonschema:"时段：full_day/morning/afternoon"`
+}
+
+type PerformanceSubmitOut struct {
+	RecordID      int     `json:"recordId"`
+	OrdersCount   int     `json:"ordersCount"`
+	Commission    float64 `json:"commissionAmount"`
+	SalesAmount   float64 `json:"salesAmount"`
+	NeedsApproval bool    `json:"needsApproval"`
+	Note          string  `json:"note"`
+}
+
+type PerformanceApproveIn struct {
+	DetailID        int    `json:"detailId" jsonschema:"订单明细ID"`
+	Approved        bool   `json:"approved" jsonschema:"通过传 true，驳回传 false"`
+	RejectionReason string `json:"rejectionReason,omitempty" jsonschema:"驳回原因（驳回时必填）"`
+}
+
+type PerformanceApproveOut struct {
+	DetailID   int     `json:"detailId"`
+	EmployeeID int     `json:"employeeId"`
+	Commission float64 `json:"commissionAmount"`
+	Note       string  `json:"note"`
+}
+
+func performanceSubmit(ctx context.Context, _ *mcp.CallToolRequest, in PerformanceSubmitIn) (*mcp.CallToolResult, PerformanceSubmitOut, error) {
+	result, err := service.SubmitPerformance(ctx, service.SubmitPerformanceInput{
+		EmployeeID: in.EmployeeID, WorkDate: in.WorkDate,
+		ProductID: in.ProductID, Orders: in.Orders,
+		SalesAmount: in.SalesAmount, WorkPeriod: in.WorkPeriod,
+		SubmittedBy: 0, Channel: "mcp",
+	})
+	if err != nil {
+		return nil, PerformanceSubmitOut{}, err
+	}
+	return nil, PerformanceSubmitOut{
+		RecordID: result.RecordID, OrdersCount: result.OrdersCount,
+		Commission: result.CommissionAmount, SalesAmount: result.SalesAmount,
+		NeedsApproval: result.NeedsApproval,
+		Note:          "已按现有规则计算提成并直接入汇总（管理员/代录通道语义）。如需员工自录审批流，走 HTTP 接口。",
+	}, nil
+}
+
+func performanceApprove(ctx context.Context, _ *mcp.CallToolRequest, in PerformanceApproveIn) (*mcp.CallToolResult, PerformanceApproveOut, error) {
+	result, err := service.ApproveOrderDetail(ctx, in.DetailID, in.Approved, in.RejectionReason, 0)
+	if err != nil {
+		return nil, PerformanceApproveOut{}, err
+	}
+	return nil, PerformanceApproveOut{
+		DetailID: result.RecordID, EmployeeID: result.EmployeeID, Commission: result.CommissionAmount,
+		Note: map[bool]string{true: "已通过：汇总+1单、提成入账", false: "已驳回"}[in.Approved],
+	}, nil
+}
+
 // ---- Server 装配 ----
 
 // NewServer 构建 MCP Server 实例（工具清单：6 个只读 + dry-run）。
@@ -242,6 +302,16 @@ func NewServer() *mcp.Server {
 		Name:        "employee_get",
 		Description: "查询员工档案（只读）：等级、状态、部门、入职日期。",
 	}, employeeGet)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "performance_submit",
+		Description: "代录业绩（写操作，管理员/代录通道语义）：直接计入汇总表并按现有规则计算提成。orders>0；有 productId 走产品分档×当日序号，否则走 10/20/30 日汇总公式。所有调用写审计。",
+	}, performanceSubmit)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "performance_approve",
+		Description: "审核员工自录订单明细（写操作）：approved=true 时明细转 approved、汇总+1单、按模型二补提成；false 驳回须填原因。明细须处于 pending_approval 状态。",
+	}, performanceApprove)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "workday_get",
