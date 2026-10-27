@@ -33,6 +33,8 @@ func (h *apiHandler) authorize(next http.Handler) http.Handler {
 		write := r.Method != "GET"
 		allowed := true
 		switch {
+		case strings.HasPrefix(p, "simulation/"):
+			allowed = role == "admin"
 		case strings.HasPrefix(p, "permissions/"):
 			allowed = (!write && (p == "permissions/me" || p == "permissions/modules")) || role == "admin"
 		case strings.HasPrefix(p, "finance/"):

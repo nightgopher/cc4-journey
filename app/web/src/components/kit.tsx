@@ -703,6 +703,7 @@ export function AppShell({
           <span className="workspace-location">{current?.label}</span>
           <span className="workspace-date">
             {new Intl.DateTimeFormat("zh-CN", {
+              timeZone: "Asia/Shanghai",
               month: "long",
               day: "numeric",
               weekday: "long",

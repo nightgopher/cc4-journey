@@ -31,8 +31,16 @@ import {
   WorkdaysPage,
 } from "./pages/core";
 import { WorkspaceContext } from "./pages/shared";
+import { SimulationPage } from "./pages/simulation";
 
 const NAV: (NavItem & { module: string })[] = [
+  {
+    key: "simulation",
+    label: "业务演练",
+    icon: "list",
+    group: "演示验证",
+    module: "simulation",
+  },
   {
     key: "dashboard",
     label: "经营概览",
@@ -318,6 +326,7 @@ export default function App() {
     settings: <SettingsPage />,
     permissions: <PermissionsPage />,
     profile: <ProfilePage />,
+    simulation: <SimulationPage />,
   };
   return (
     <WorkspaceContext.Provider
@@ -331,6 +340,11 @@ export default function App() {
         userRole={user.role}
         onLogout={logout}
       >
+        {user.demo_mode && (
+          <div className="environment-note" role="note">
+            模拟经营环境 · 业务日期按北京时间，演练收付款为模拟记录。
+          </div>
+        )}
         <React.Fragment key={page}>
           {nav.some((n) => n.key === page) ? views[page] : null}
         </React.Fragment>

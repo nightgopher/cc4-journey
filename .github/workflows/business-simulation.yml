@@ -1,0 +1,33 @@
+name: Business simulation
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '15 16 * * *' # 00:15 Asia/Shanghai
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cc4-business-simulation
+  cancel-in-progress: false
+
+jobs:
+  simulate:
+    if: vars.CC4_BUSINESS_SIMULATION_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out scenario runner
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Advance demo operations to the current business day
+        env:
+          CC4_SIMULATION_ALLOW_WRITE: 'true'
+          CC4_SIMULATION_BASE_URL: http://150.5.143.32:8080/cc4/api/v1
+          CC4_SIMULATION_ADMIN_PHONE: ${{ secrets.CC4_SIMULATION_ADMIN_PHONE }}
+          CC4_SIMULATION_ADMIN_PASSWORD: ${{ secrets.CC4_SIMULATION_ADMIN_PASSWORD }}
+          CC4_SIMULATION_SEED: ${{ secrets.CC4_SIMULATION_SEED }}
+        run: |
+          set -euo pipefail
+          python3 app/simulation/run.py --days 7
+          printf '%s\n' '[业务演练报告](http://150.5.143.32:8080/cc4/?view=simulation)' >> "$GITHUB_STEP_SUMMARY"

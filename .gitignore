@@ -8,3 +8,4 @@ app/uploads/
 services/lead-source-mock/release/
 services/lead-source-mock/deploy/__pycache__/
 app/deploy/__pycache__/
+app/simulation/__pycache__/

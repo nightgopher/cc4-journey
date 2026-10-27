@@ -76,6 +76,7 @@ export const auth = {
 };
 
 export interface User {
+  demo_mode?: boolean;
   id: number;
   name: string | null;
   role: string;

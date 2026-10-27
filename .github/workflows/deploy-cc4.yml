@@ -55,6 +55,7 @@ jobs:
           go vet ./...
           bash -n deploy/bootstrap.sh deploy/deploy.sh deploy/backup.sh
           python3 -m unittest discover -s deploy -p 'test_*.py'
+          python3 -m unittest discover -s simulation -p 'test_*.py'
       - name: Run PostgreSQL 14 business integration
         working-directory: app
         env:
@@ -70,6 +71,14 @@ jobs:
           psql -h 127.0.0.1 -U root -d cc4_test_ci -v ON_ERROR_STOP=1 -f migrations/000_baseline_schema.sql > /dev/null
           psql -h 127.0.0.1 -U root -d cc4_test_ci -v ON_ERROR_STOP=1 -f migrations/001_go_completion.sql > /dev/null
           go test -race ./internal/api -run TestBusinessIntegration -count=1 -v
+      - name: Replay seven days through real HTTP APIs
+        working-directory: app
+        env:
+          CC4_TEST_CONTAINER: ${{ job.services.postgres.id }}
+          DB_PORT: '5432'
+          DB_USER: root
+          DB_PASSWORD: ci-only-password
+        run: bash scripts/test-simulation.sh
       - name: Build production frontend
         working-directory: app/web
         env:

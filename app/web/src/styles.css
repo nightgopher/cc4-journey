@@ -1250,3 +1250,11 @@ tbody tr:hover {
     font-size: 1.4rem;
   }
 }
+.environment-note {
+  margin-bottom: 20px;
+  padding: 10px 14px;
+  border-left: 3px solid var(--accent);
+  background: #eaf0ff;
+  color: var(--ink);
+  font-size: 13px;
+}

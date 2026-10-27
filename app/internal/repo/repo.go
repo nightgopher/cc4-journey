@@ -2,6 +2,8 @@ package repo
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -16,6 +18,16 @@ func Connect(ctx context.Context, dsn string) error {
 	if err != nil {
 		return err
 	}
+	zone := os.Getenv("BUSINESS_TIMEZONE")
+	if zone == "" {
+		zone = "Asia/Shanghai"
+	}
+	if _, err := time.LoadLocation(zone); err != nil {
+		return fmt.Errorf("invalid BUSINESS_TIMEZONE %q: %w", zone, err)
+	}
+	// DATE comparisons with timestamptz (calls, dashboards and reports) must use
+	// the same business calendar as the scheduler, independent of the DB host.
+	cfg.ConnConfig.RuntimeParams["timezone"] = zone
 	cfg.MaxConns = 20
 	cfg.MaxConnLifetime = time.Hour
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)

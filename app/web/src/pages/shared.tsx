@@ -25,8 +25,15 @@ export const text = (row: Row, key: string) =>
   row[key] == null ? "" : String(row[key]);
 export const number = (row: Row, key: string) => Number(row[key] ?? 0);
 export const today = () => {
-  const date = new Date();
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const value = (type: string) =>
+    parts.find((part) => part.type === type)!.value;
+  return `${value("year")}-${value("month")}-${value("day")}`;
 };
 export const roles = (user: User, ...allowed: string[]) =>
   allowed.includes(user.role);

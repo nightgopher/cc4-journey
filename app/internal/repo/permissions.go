@@ -21,6 +21,7 @@ type Module struct {
 }
 
 var Modules = []Module{
+	{Key: "simulation", Label: "业务演练", Group: "system", Type: "page"},
 	{Key: "dashboard", Label: "概览", Group: "core", Type: "page"}, {Key: "reports", Label: "数据报表", Group: "core", Type: "page"},
 	{Key: "leads", Label: "线索管理", Group: "business", Type: "page"}, {Key: "wechat-leads", Label: "微信线索", Group: "business", Type: "page"},
 	{Key: "customers", Label: "客户管理", Group: "business", Type: "page"}, {Key: "performance", Label: "月度业绩", Group: "business", Type: "page"},

@@ -720,6 +720,16 @@ export function WechatPage() {
     columns: [
       { key: "customer_name", title: "客户姓名" },
       { key: "real_phone", title: "手机号" },
+      {
+        key: "data_source",
+        title: "来源",
+        render: (row) =>
+          row.data_source === "mock"
+            ? "模拟外呼"
+            : row.data_source === "import"
+              ? "人工导入"
+              : "外呼同步",
+      },
       stateColumn(),
       { key: "assigned_employee_name", title: "负责人" },
       { key: "city", title: "城市" },
@@ -808,11 +818,22 @@ export function WechatPage() {
           ]}
           onClose={() => setSync(false)}
           onSave={async (v) => {
-            await request("POST", "/wechat-leads/sync", {
+            const result = await request<{
+              data: {
+                processedCount: number;
+                savedCount: number;
+                duplicateCount: number;
+                mock: boolean;
+              };
+            }>("POST", "/wechat-leads/sync", {
               startTime: `${v.startDate} 00:00:00`,
               endTime: `${v.endDate} 23:59:59`,
             });
-            notify("外呼线索已同步");
+            const { processedCount, savedCount, duplicateCount, mock } =
+              result.data;
+            notify(
+              `${mock ? "模拟外呼" : "外呼"}处理 ${processedCount} 通，新增 ${savedCount} 条，重复 ${duplicateCount} 条`,
+            );
             window.dispatchEvent(new Event("cc4:refresh"));
           }}
           submitText="同步数据"

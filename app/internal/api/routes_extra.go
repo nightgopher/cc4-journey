@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -668,6 +669,15 @@ func (h *apiHandler) listSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		rows = filtered
 	}
+	if role != "admin" {
+		filtered := []repo.Setting{}
+		for _, s := range rows {
+			if !strings.HasPrefix(s.Key, "business_simulation_") {
+				filtered = append(filtered, s)
+			}
+		}
+		rows = filtered
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"settings": rows})
 }
 
@@ -679,6 +689,10 @@ func (h *apiHandler) upsertSetting(w http.ResponseWriter, r *http.Request) {
 	var s repo.Setting
 	if err := json.NewDecoder(r.Body).Decode(&s); err != nil || s.Key == "" {
 		writeErr(w, http.StatusBadRequest, "缺少必要参数：key/value")
+		return
+	}
+	if _, role := mustUser(r.Context()); strings.HasPrefix(s.Key, "business_simulation_") && (role != "admin" || s.IsPublic) {
+		writeErr(w, 403, "业务演练状态与报告仅限管理员私有管理")
 		return
 	}
 	if err := repo.UpsertSetting(r.Context(), &s); err != nil {
@@ -694,6 +708,10 @@ func (h *apiHandler) deleteSetting(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	key := chi.URLParam(r, "key")
+	if _, role := mustUser(r.Context()); role != "admin" && strings.HasPrefix(key, "business_simulation_") {
+		writeErr(w, 403, "业务演练状态与报告仅限管理员私有管理")
+		return
+	}
 	if err := repo.DeleteSetting(r.Context(), key); err != nil {
 		writeErr(w, http.StatusInternalServerError, "删除失败")
 		return
@@ -709,7 +727,7 @@ func (h *apiHandler) publicSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	out := []repo.Setting{}
 	for _, s := range rows {
-		if s.IsPublic {
+		if s.IsPublic && !strings.HasPrefix(s.Key, "business_simulation_") {
 			out = append(out, s)
 		}
 	}

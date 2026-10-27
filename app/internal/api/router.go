@@ -277,6 +277,7 @@ func (h *apiHandler) session(w http.ResponseWriter, r *http.Request) {
 		dbError(w, err)
 		return
 	}
+	row["demo_mode"] = os.Getenv("BUSINESS_SIMULATION_ENABLED") == "true"
 	writeJSON(w, http.StatusOK, map[string]any{"userId": uid, "user": row})
 }
 

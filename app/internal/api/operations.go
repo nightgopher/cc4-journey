@@ -14,6 +14,8 @@ import (
 )
 
 func (h *apiHandler) registerOperations(r chi.Router) {
+	r.Get("/simulation/report", h.simulationReport)
+	r.Post("/simulation/lease", h.simulationLease)
 	r.Get("/products/{id}", func(w http.ResponseWriter, r *http.Request) {
 		id, err := pathID(r)
 		if err != nil {
