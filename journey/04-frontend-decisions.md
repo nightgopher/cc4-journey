@@ -69,7 +69,7 @@ Operate 质量标准：任务可发现、数据来自 API、操作后状态明�
 
 ## 技能分工
 
-- `anthropic-official/skills/frontend-design/SKILL.md`：业务主题、令牌、两遍设计与截图自评。
+- `external/frontend-design/SKILL.md`：业务主题、令牌、两遍设计与截图自评。
 - `ui-library-selector-skill/ui-library-selector/SKILL.md`：按表面分层选型与复用判断。
 - `apple-design-skill/SKILL.md`：借用可访问性、布局、输入、表格、模态与反馈原则；Web 不照搬 macOS 菜单栏等原生约定。
 - `web-design-guidelines-vercel/SKILL.md`：使用本次读取的最新上游规则检查语义、键盘、标签、URL 状态、表单与滚动。

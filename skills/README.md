@@ -33,9 +33,7 @@
 | 技能 | 来源仓库 | 用途（培训文档 3.x 节） |
 |-|-|-|
 | `external/forge-prd-entity` | 课程完整包 v2.0（本地副本入库） | 3.1 需求梳理 → 文字版 PRD → 图文 PRD 三阶段，阶段关口推进 |
-| `external/anthropic-official/skills/frontend-design` | anthropics/skills | 3.2.1 界面设计：为页面形成明确的设计方向，避免通用模板脸 |
-| `external/anthropic-official/skills/canvas-design` | anthropics/skills | 3.2.1 静态视觉素材（海报/封面 PNG/PDF） |
-| `external/anthropic-official/skills/web-artifacts-builder` | anthropics/skills | 3.2.3 在 Claude 中交付多组件交互演示 artifact |
+| `external/frontend-design` | [anthropics/skills](https://github.com/anthropics/skills) | 3.2.1 界面设计：为页面形成明确的设计方向，避免通用模板脸 |
 | `external/web-design-guidelines-vercel` | vercel-labs/agent-skills | 3.2.4 按 Web Interface Guidelines 审查 UI 代码，输出 file:line |
 | `external/ui-library-selector-skill` | wangwei-wade/ui-library-selector-skill | 3.2.2 组件选型：分层选行为/视觉/动画来源，定向查找并验证接入 |
 | `external/apple-design-skill` | dickwu/apple-design-skill | 3.2.4 按 Apple HIG 检查体验：可访问性/平台习惯/交互五维审查 |
@@ -44,6 +42,7 @@
 培训文档同一场次还推荐了（未随本仓库收录，按需自取）：
 
 - **ui-ux-pro-max**：https://github.com/nextlevelbuilder/ui-ux-pro-max-skill （3.2.1 建立可复用设计规则 MASTER.md）
+- **canvas-design / web-artifacts-builder**（anthropics/skills）：培训文档 3.2.1/3.2.3 引用，案例未用到，未收录，按需自取
 - **self-evolution / grilling 等工程质量与思维工具集合**：课程内部 Skill 包（其中 grilling 已从 mattpocock/skills 收录，两者同源）
 
 ### 课程 zip 包下载状态
@@ -61,6 +60,6 @@
 - 所有技能保留原文与配套文件（scripts/references/agents），安装到工具的 Skill 目录即可使用（Claude Code: `.claude/skills/<name>/`，Codex: `.agents/skills/<name>/`）。
 - 更新单个技能示例：
   ```bash
-  gh api repos/anthropics/skills/contents/skills/frontend-design/SKILL.md --jq '.content' | base64 -d > skills/external/anthropic-official/skills/frontend-design/SKILL.md
+  gh api repos/anthropics/skills/contents/skills/frontend-design/SKILL.md --jq '.content' | base64 -d > skills/external/frontend-design/SKILL.md
   ```
 - 收录原则：与本次「从 0 到 1」演练阶段直接相关；上游 Skill 依赖其仓库级配置（GLOSSARY / issue tracker）的，按本仓库 journey 语境适配，不强制照搬。
