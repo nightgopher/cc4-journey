@@ -26,14 +26,18 @@ func (t bearerTransport) RoundTrip(request *http.Request) (*http.Response, error
 func main() {
 	endpoint := flag.String("url", "https://150.5.143.32/mcp", "Streamable HTTP endpoint")
 	employeeID := flag.Int("employee", 0, "Optionally verify a cloud employee projection")
+	accessMode := flag.String("access-mode", "read_only", "Expected admin credential mode: read_only or read_write")
 	flag.Parse()
-	if err := check(*endpoint, *employeeID); err != nil {
+	if err := check(*endpoint, *employeeID, *accessMode); err != nil {
 		fmt.Fprintln(os.Stderr, "MCP verification failed:", err)
 		os.Exit(1)
 	}
 }
 
-func check(endpoint string, employeeID int) error {
+func check(endpoint string, employeeID int, accessMode string) error {
+	if accessMode != "read_only" && accessMode != "read_write" {
+		return fmt.Errorf("invalid access mode")
+	}
 	token := os.Getenv("CC4_MCP_TOKEN")
 	if token == "" {
 		return fmt.Errorf("CC4_MCP_TOKEN is required")
@@ -52,7 +56,11 @@ func check(endpoint string, employeeID int) error {
 	if err != nil {
 		return err
 	}
-	want := map[string]bool{"salary_preview": true, "commission_preview": true, "level_transition_check": true, "employee_get": true, "workday_get": true, "performance_submit": true, "performance_approve": true}
+	want := map[string]bool{"salary_preview": true, "commission_preview": true, "level_transition_check": true, "employee_get": true, "workday_get": true}
+	if accessMode == "read_write" {
+		want["performance_submit"] = true
+		want["performance_approve"] = true
+	}
 	var names []string
 	for _, tool := range tools.Tools {
 		if !want[tool.Name] {

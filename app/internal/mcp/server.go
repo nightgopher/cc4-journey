@@ -9,16 +9,15 @@ package mcp
 
 import (
 	"context"
-	"crypto/subtle"
 	"fmt"
-	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/nightgopher/cc4-journey/app/internal/access"
 	"github.com/nightgopher/cc4-journey/app/internal/domain"
+	"github.com/nightgopher/cc4-journey/app/internal/mcpaccess"
 	"github.com/nightgopher/cc4-journey/app/internal/repo"
 	"github.com/nightgopher/cc4-journey/app/internal/service"
 )
@@ -246,11 +245,15 @@ type PerformanceApproveOut struct {
 }
 
 func performanceSubmit(ctx context.Context, _ *mcp.CallToolRequest, in PerformanceSubmitIn) (*mcp.CallToolResult, PerformanceSubmitOut, error) {
+	grant := mcpaccess.FromContext(ctx)
+	if grant == nil || grant.Principal.EmployeeID <= 0 {
+		return nil, PerformanceSubmitOut{}, access.ErrForbidden
+	}
 	result, err := service.SubmitPerformance(ctx, service.SubmitPerformanceInput{
 		EmployeeID: in.EmployeeID, WorkDate: in.WorkDate,
 		ProductID: in.ProductID, Orders: in.Orders,
 		SalesAmount: in.SalesAmount, WorkPeriod: in.WorkPeriod,
-		SubmittedBy: 0, Channel: "mcp",
+		SubmittedBy: grant.Principal.EmployeeID, Channel: "mcp",
 	})
 	if err != nil {
 		return nil, PerformanceSubmitOut{}, err
@@ -264,7 +267,11 @@ func performanceSubmit(ctx context.Context, _ *mcp.CallToolRequest, in Performan
 }
 
 func performanceApprove(ctx context.Context, _ *mcp.CallToolRequest, in PerformanceApproveIn) (*mcp.CallToolResult, PerformanceApproveOut, error) {
-	result, err := service.ApproveOrderDetail(ctx, in.DetailID, in.Approved, in.RejectionReason, 0)
+	grant := mcpaccess.FromContext(ctx)
+	if grant == nil || grant.Principal.EmployeeID <= 0 {
+		return nil, PerformanceApproveOut{}, access.ErrForbidden
+	}
+	result, err := service.ApproveOrderDetail(ctx, in.DetailID, in.Approved, in.RejectionReason, grant.Principal.EmployeeID)
 	if err != nil {
 		return nil, PerformanceApproveOut{}, err
 	}
@@ -277,7 +284,9 @@ func performanceApprove(ctx context.Context, _ *mcp.CallToolRequest, in Performa
 // ---- Server 装配 ----
 
 // NewServer exposes five query/preview tools and two administrative write tools.
-func NewServer() *mcp.Server {
+func NewServer() *mcp.Server { return newAuthorizedServer(0, mcpaccess.Resolve) }
+
+func newAuthorizedServer(credentialID int64, resolve grantResolver) *mcp.Server {
 	version := os.Getenv("CC4_RELEASE_SHA")
 	if version == "" {
 		version = "dev"
@@ -325,64 +334,17 @@ func NewServer() *mcp.Server {
 		Description: "查询月度工作日配置（只读）：所有『X个工作日』规则的基准。未配置月份回退周一至周五并明确提示。",
 	}, workdayGet)
 
+	installAuthorization(server, credentialID, resolve)
 	return server
 }
 
 // ServeStdio 以 stdio 传输运行（本地 CLI agent 接入方式）。
 // stdout 是协议通道，任何日志不得写 stdout。
 func ServeStdio() error {
-	return NewServer().Run(context.Background(), &mcp.StdioTransport{})
-}
-
-// HTTPHandler keeps one transport/session registry for the handler's lifetime.
-// A separate integration token grants all seven tools; HTTP is disabled when
-// no token is configured. Browser origins are explicitly checked before auth.
-func HTTPHandler(authToken string) http.Handler {
-	transport := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
-		return NewServer()
-	}, &mcp.StreamableHTTPOptions{
-		SessionTimeout:      15 * time.Minute,
-		MaxRequestBodyBytes: 1 << 20,
-	})
-	allowedOrigins := strings.FieldsFunc(os.Getenv("MCP_ALLOWED_ORIGINS"), func(r rune) bool { return r == ',' })
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "no-store")
-		if authToken == "" {
-			http.Error(w, `{"error":"MCP is not configured"}`, http.StatusServiceUnavailable)
-			return
-		}
-		if origin := r.Header.Get("Origin"); origin != "" {
-			scheme := "http"
-			if r.TLS != nil {
-				scheme = "https"
-			}
-			allowed := origin == scheme+"://"+r.Host
-			for _, configured := range allowedOrigins {
-				allowed = allowed || origin == strings.TrimSpace(configured)
-			}
-			if !allowed {
-				http.Error(w, `{"error":"Origin is not allowed"}`, http.StatusForbidden)
-				return
-			}
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Add("Vary", "Origin")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, MCP-Protocol-Version, Mcp-Session-Id, Last-Event-ID")
-			w.Header().Set("Access-Control-Expose-Headers", "Mcp-Session-Id")
-		}
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-		scheme, supplied, ok := strings.Cut(r.Header.Get("Authorization"), " ")
-		if !ok || !strings.EqualFold(scheme, "Bearer") || subtle.ConstantTimeCompare([]byte(supplied), []byte(authToken)) != 1 {
-			w.Header().Set("WWW-Authenticate", `Bearer realm="cc4-mcp"`)
-			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
-			return
-		}
-		// The main API bounds ordinary writes to 90 seconds. A standalone SSE
-		// stream can live longer; the transport expires idle sessions separately.
-		_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
-		transport.ServeHTTP(w, r)
-	})
+	ctx := context.Background()
+	grant, err := mcpaccess.Authenticate(ctx, os.Getenv("CC4_MCP_TOKEN"))
+	if err != nil {
+		return err
+	}
+	return newAuthorizedServer(grant.Credential.ID, mcpaccess.Resolve).Run(ctx, &mcp.StdioTransport{})
 }

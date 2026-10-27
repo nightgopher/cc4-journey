@@ -6,7 +6,6 @@ import (
 )
 
 func TestMCPRouteHasIndependentAuthenticationAndOriginChecks(t *testing.T) {
-	t.Setenv("MCP_TOKEN", "route-secret")
 	t.Setenv("MCP_ALLOWED_ORIGINS", "https://trusted.example")
 	router := Router("website-jwt-secret")
 	for _, test := range []struct {

@@ -41,14 +41,14 @@ def validate_evidence(output):
     validate_negative(json.loads((simulation / "negative-report.json").read_text()))
     messages = [json.loads(line) for line in (output / "api-integration.jsonl").read_text().splitlines() if line.strip()]
     passed = {row.get("Test", "") for row in messages if row.get("Action") == "pass"}
-    require({"TestBusinessIntegration", "TestMCPBusinessIntegration", "TestReimbursementIntegration"}.issubset(passed), "HTTP/MCP/报销集成被跳过或未通过")
+    require({"TestBusinessIntegration", "TestMCPBusinessIntegration", "TestMCPAuthorizationIntegration", "TestReimbursementIntegration"}.issubset(passed), "HTTP/MCP业务与授权/报销集成被跳过或未通过")
     reimbursement = json.loads((output / "reimbursement-report.json").read_text())
     require(reimbursement.get("status") == "passed" and reimbursement.get("expenseCount") == 1 and reimbursement.get("expenseAmount") == 125.5, "报销付款证据缺失或金额错误")
     require(reimbursement.get("staleDecision") == "rejected", "缺少报销旧版本审批与付款拦截证据")
     groups = [test for test in passed if test.startswith("TestBusinessIntegration/")]
     require(len(groups) >= 19, "实际运行的业务集成不足19组")
     require(sum(test.startswith("TestReimbursementIntegration/") for test in passed) >= 11, "实际运行的报销集成不足11组")
-    return {"business": result, "httpIntegrationGroups": len(groups), "mcpBusinessIntegration": "passed",
+    return {"business": result, "httpIntegrationGroups": len(groups), "mcpBusinessIntegration": "passed", "mcpAuthorizationIntegration": "passed",
             "idempotency": "passed", "unrelatedData": "preserved", "oneYuanFaultDetected": True, "ocrReimbursement": reimbursement}
 
 

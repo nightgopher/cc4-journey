@@ -73,7 +73,7 @@ jobs:
           for migration in migrations/*.sql; do
             psql -h 127.0.0.1 -U root -d cc4_test_ci -v ON_ERROR_STOP=1 -f "$migration" > /dev/null
           done
-          go test -race ./internal/api -run 'Test(BusinessIntegration|MCPBusinessIntegration|ReimbursementIntegration)$' -count=1 -v
+          go test -race ./internal/api -run 'Test(BusinessIntegration|MCPBusinessIntegration|MCPAuthorizationIntegration|ReimbursementIntegration)$' -count=1 -v
       - name: Replay seven days through real HTTP APIs
         working-directory: app
         env:

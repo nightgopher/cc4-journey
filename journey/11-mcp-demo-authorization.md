@@ -1,6 +1,6 @@
 # 演示版 MCP 身份与权限设计
 
-状态：**设计方案，尚未实施**。当前线上仍是单一集成 Token，可调用全部 7 个工具；本方案不代表已经完成按用户分权。
+状态：**已实现并上线（2026-10-27）**。账号绑定凭据、动态授权、真实操作者、个人中心入口及 PostgreSQL 集成验收均已完成，见 [发布验收记录](12-mcp-user-auth-release.md)。
 
 ## 目标与取舍
 
@@ -55,7 +55,7 @@ Agent 软件自身的登录态属于另一个身份系统。没有事先建立�
 
 页面只增加“Agent 接入”区块：当前连接状态、仅查询/允许写入、生成或重置配置、断开 Agent。明文 Token 仅生成时展示；找不到原配置时重置，不从服务端读取旧明文。
 
-建议复用现有登录认证的 REST 接口：
+已复用现有登录认证的 REST 接口：
 
 - `POST /api/v1/mcp/credentials`：生成或重置。默认绑定当前用户；仅管理员可指定 ownerUserId。
 - `GET /api/v1/mcp/credentials`：返回当前用户的凭据元信息；不返回 Token 或哈希。管理员管理他人凭据需独立检查权限。
@@ -74,6 +74,6 @@ Agent 软件自身的登录态属于另一个身份系统。没有事先建立�
 
 必须验证：查询凭据无法直接调用写工具；篡改 employeeId 或订单 ID 无法跨团队；权限改变后同一 Token 的下一次调用生效；撤销后旧 MCP 会话返回未授权；普通用户不能替他人发放凭据；员工无法利用代录通道跳过自录审核；生成与重置流程不泄露历史明文凭据。
 
-当前阶段只设计，不更改线上鉴权或另一会话正在编辑的业务实现。
+实现在独立工作区完成；不覆盖另一会话的业务实现。新增 `003_mcp_credentials.sql` 为兼容增量，旧全局 Token 不再作为鉴权路径。
 
 参考：[MCP HTTP 授权规范](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization)、[MCP 安全最佳实践](https://modelcontextprotocol.io/docs/2025-11-25/tutorials/security/security_best_practices)。

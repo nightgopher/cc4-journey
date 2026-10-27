@@ -16,12 +16,12 @@ import (
 	"github.com/nightgopher/cc4-journey/app/internal/repo"
 )
 
-type mcpIntegrationAuth struct{}
+type mcpIntegrationAuth struct{ token string }
 
-func (mcpIntegrationAuth) RoundTrip(request *http.Request) (*http.Response, error) {
+func (a mcpIntegrationAuth) RoundTrip(request *http.Request) (*http.Response, error) {
 	copy := request.Clone(request.Context())
 	copy.Header = request.Header.Clone()
-	copy.Header.Set("Authorization", "Bearer mcp-business-test")
+	copy.Header.Set("Authorization", "Bearer "+a.token)
 	return http.DefaultTransport.RoundTrip(copy)
 }
 
@@ -41,19 +41,23 @@ func TestMCPBusinessIntegration(t *testing.T) {
 	}
 	defer repo.Close()
 	var userID, employeeID int
-	if err := repo.Pool.QueryRow(ctx, `INSERT INTO users(phone,password_hash,role,status) VALUES('00090000001','test-only','employee','active') RETURNING id`).Scan(&userID); err != nil {
+	if err := repo.Pool.QueryRow(ctx, `INSERT INTO users(phone,password_hash,role,status) VALUES('00090000001','test-only','admin','active') RETURNING id`).Scan(&userID); err != nil {
 		t.Fatal(err)
 	}
 	if err := repo.Pool.QueryRow(ctx, `INSERT INTO employees(user_id,employee_code,name,level,status,join_date) VALUES($1,'MCP_TEST','MCP 验收员工','c_level','active','2026-10-01') RETURNING id`, userID).Scan(&employeeID); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("MCP_TOKEN", "mcp-business-test")
+	ensureMCPCredentialsSchema(t)
+	_, token, err := repo.MintMCPCredential(ctx, userID, userID, "Integration", "read_write")
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv("MCP_ALLOWED_ORIGINS", "")
 	server := httptest.NewServer(Router("website-test-secret"))
 	defer server.Close()
 	client := protocol.NewClient(&protocol.Implementation{Name: "business-agent-test", Version: "1"}, nil)
 	session, err := client.Connect(ctx, &protocol.StreamableClientTransport{
-		Endpoint: server.URL + "/mcp", HTTPClient: &http.Client{Transport: mcpIntegrationAuth{}},
+		Endpoint: server.URL + "/mcp", HTTPClient: &http.Client{Transport: mcpIntegrationAuth{token: token}},
 		MaxRetries: -1,
 	}, nil)
 	if err != nil {
@@ -101,6 +105,10 @@ func TestMCPBusinessIntegration(t *testing.T) {
 	if err := repo.Pool.QueryRow(ctx, `SELECT orders_count,commission_amount FROM daily_performance_records WHERE id=$1`, int(created["recordId"].(float64))).Scan(&orders, &commission); err != nil || orders != 2 || commission != 20 {
 		t.Fatalf("MCP submit did not persist expected business data: orders=%d commission=%.2f err=%v", orders, commission, err)
 	}
+	var attributed int
+	if err := repo.Pool.QueryRow(ctx, `SELECT count(*) FROM agent_tool_audit WHERE actor='mcp' AND action='performance_submit' AND detail LIKE $1`, fmt.Sprintf("%% by=%d", employeeID)).Scan(&attributed); err != nil || attributed != 1 {
+		t.Fatalf("submit was not attributed to the actual employee: %d %v", attributed, err)
+	}
 	pending, err := repo.SubmitOrder(ctx, repo.OrderSubmission{EmployeeID: employeeID, WorkDate: "2026-10-09", WorkPeriod: "full_day", ParentPhone: "00090000002", OrderID: "MCP_APPROVAL"})
 	if err != nil {
 		t.Fatal(err)
@@ -119,4 +127,21 @@ func TestMCPBusinessIntegration(t *testing.T) {
 		t.Fatalf("repeated approval must be a tool error: %+v %v", repeated, err)
 	}
 	t.Log(fmt.Sprintf("Streamable HTTP: discovered 7 tools; previews/queries, real submit, real approval and repeat rejection passed for isolated employee %d", employeeID))
+}
+
+func ensureMCPCredentialsSchema(t *testing.T) {
+	t.Helper()
+	var exists bool
+	if err := repo.Pool.QueryRow(context.Background(), "SELECT to_regclass('public.mcp_credentials') IS NOT NULL").Scan(&exists); err != nil {
+		t.Fatal(err)
+	}
+	if !exists {
+		body, err := os.ReadFile("../../migrations/003_mcp_credentials.sql")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = repo.Pool.Exec(context.Background(), string(body)); err != nil {
+			t.Fatal(err)
+		}
+	}
 }

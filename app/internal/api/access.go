@@ -13,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	businessaccess "github.com/nightgopher/cc4-journey/app/internal/access"
 	"github.com/nightgopher/cc4-journey/app/internal/repo"
 )
 
@@ -93,27 +94,19 @@ func (h *apiHandler) authorize(next http.Handler) http.Handler {
 		if role != "admin" && !strings.HasPrefix(p, "auth/") && !strings.HasPrefix(p, "permissions/") && !strings.HasPrefix(p, "lookups/") {
 			module := strings.Split(strings.Trim(p, "/"), "/")[0]
 			module = mapModule(module)
-			allowedModules := repo.DefaultModules(role)
 			uid, _ := mustUser(r.Context())
-			var position *string
-			err := repo.Pool.QueryRow(r.Context(), `SELECT position FROM employees WHERE user_id=$1`, uid).Scan(&position)
-			if err != nil {
-				if errors.Is(err, pgx.ErrNoRows) {
-					writeErr(w, 403, "员工档案不存在")
-				} else {
-					dbError(w, err)
-				}
+			principal := businessaccess.FromContext(r.Context())
+			if principal == nil {
+				principal, _ = businessaccess.Load(r.Context(), uid)
+			}
+			if principal == nil || principal.EmployeeID == 0 {
+				writeErr(w, 403, "员工档案不存在")
 				return
 			}
-			if position != nil {
-				configured, ok, err := repo.PositionModules(r.Context(), repo.Pool, *position)
-				if err != nil {
-					dbError(w, err)
-					return
-				}
-				if ok {
-					allowedModules = configured
-				}
+			allowedModules, err := principal.Modules(r.Context())
+			if err != nil {
+				dbError(w, err)
+				return
 			}
 			if !slices.Contains(allowedModules, module) {
 				writeErr(w, 403, "当前职位无权访问此模块")
@@ -126,6 +119,8 @@ func (h *apiHandler) authorize(next http.Handler) http.Handler {
 
 func mapModule(module string) string {
 	switch module {
+	case "mcp":
+		return "profile"
 	case "finance":
 		return "financial"
 	case "approvals":
@@ -164,39 +159,26 @@ func canAccessTeam(w http.ResponseWriter, r *http.Request, id int) bool {
 }
 
 func employeeScope(r *http.Request) (employeeID, teamID *int, err error) {
-	uid, role := mustUser(r.Context())
-	if !hasRole(role, "employee", "manager", "workplace_manager") {
-		return nil, nil, nil
+	p := businessaccess.FromContext(r.Context())
+	if p == nil {
+		uid, _ := mustUser(r.Context())
+		p, err = businessaccess.Load(r.Context(), uid)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
-	e, err := repo.GetEmployeeByUserID(r.Context(), uid)
-	if err != nil {
-		return nil, nil, err
-	}
-	if role == "employee" {
-		return &e.ID, nil, nil
-	}
-	if e.TeamID == nil {
-		return nil, nil, errors.New("未分配团队")
-	}
-	return nil, e.TeamID, nil
+	return p.Scope()
 }
 
 func canAccessEmployee(w http.ResponseWriter, r *http.Request, id int) bool {
-	emp, team, err := employeeScope(r)
-	if err != nil {
-		writeErr(w, 403, "员工档案或团队不存在")
-		return false
+	p := businessaccess.FromContext(r.Context())
+	if p == nil {
+		uid, _ := mustUser(r.Context())
+		p, _ = businessaccess.Load(r.Context(), uid)
 	}
-	if emp != nil && *emp != id {
-		writeErr(w, 403, "只能操作自己的记录")
+	if p == nil || p.CheckEmployee(r.Context(), id) != nil {
+		writeErr(w, 403, "无权限操作该员工的记录")
 		return false
-	}
-	if team != nil {
-		target, err := repo.TeamIDOfEmployee(r.Context(), id)
-		if err != nil || target == nil || *target != *team {
-			writeErr(w, 403, "只能操作本团队的记录")
-			return false
-		}
 	}
 	return true
 }
