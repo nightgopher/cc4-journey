@@ -13,7 +13,7 @@ import {
   Status,
 } from "../components/kit";
 import { collection, download, queryString, request, Row } from "../lib/api";
-import { LEVEL_ZH, money } from "../lib/tokens";
+import { LEVEL_ZH, ROLE_ZH, money } from "../lib/tokens";
 import { MCPAccess } from "../components/mcp-access";
 import {
   ActionDialog,
@@ -428,6 +428,17 @@ export function EmployeesPage() {
         columns: [
           { key: "name", title: "姓名" },
           { key: "employee_code", title: "工号" },
+          {
+            key: "login_phone",
+            title: "登录账号",
+            render: (r) =>
+              text(r, "login_phone") || <span className="muted">未开通</span>,
+          },
+          {
+            key: "user_role",
+            title: "账号角色",
+            render: (r) => ROLE_ZH[text(r, "user_role")] ?? "—",
+          },
           {
             key: "level",
             title: "等级",

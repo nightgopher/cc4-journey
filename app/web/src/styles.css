@@ -224,6 +224,10 @@ small {
   flex-wrap: wrap;
   gap: 6px;
 }
+td.actions-cell .row-actions {
+  /* Wrapping lets the table shrink the column to one button and stack them. */
+  flex-wrap: nowrap;
+}
 .row-actions .btn {
   min-height: 30px;
   padding: 4px 9px;

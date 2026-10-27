@@ -34,6 +34,8 @@ import {
 } from "./shared";
 
 const leadStates = ["new", "contacted", "qualified", "converted", "lost"];
+/** 终态：PRD 3.2 规定不能再分配或跟进（后端同样拒绝）。 */
+const closedLeadStates = ["converted", "lost", "duplicate"];
 const phoneField: FormField = {
   key: "phone",
   label: "手机号",
@@ -755,6 +757,7 @@ export function WechatPage() {
     actions: [
       {
         label: "记录跟进",
+        visible: (r) => !closedLeadStates.includes(text(r, "status")),
         fields: [
           {
             key: "content",
@@ -772,6 +775,8 @@ export function WechatPage() {
         ? [
             {
               label: "分配",
+              visible: (r: Row) =>
+                !closedLeadStates.includes(text(r, "status")),
               fields: [{ ...idField, key: "employeeId" }],
               run: (r: Row, v: Record<string, string | boolean>) =>
                 request("PUT", `${path}/${text(r, "id")}/assign`, {
