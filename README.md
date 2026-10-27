@@ -23,7 +23,7 @@
 | 04 开发 | [app/README.md](app/README.md)、[PROGRESS.md](PROGRESS.md) | ✅ Go 业务补全与 19 页 React 工作台，详见验证范围 |
 | 05 部署与验收 | [主系统部署](journey/07-main-application-deployment.md)、[上游模拟服务](journey/06-upstream-mock-deployment.md) | ✅ 两个服务均由 GitHub Actions 发布；主系统独立 8080 入口、持久化数据库与上传、每日备份 |
 | 06 连续经营 | [演练范围](journey/08-business-simulation.md)、[独立复核](journey/09-business-simulation-review.md) | ✅ 真实API覆盖入离职、调级、订单审批、回款和工资；7日105个事件、831项核对及1元故障注入 |
-| 07 学员验收 | [一键验收包](app/verification/README.md)、[用例与依据](app/verification/CASES.md)、[提交模板](app/verification/SUBMISSION.md) | 自建隔离库执行完整验收，输出日志、逐项断言、幂等与1元反例证据；支持GitHub Actions |
+| 07 学员验收 | [一键验收包](app/verification/README.md)、[用例与依据](app/verification/CASES.md)、[提交模板](app/verification/SUBMISSION.md) | ✅ 本机与GitHub Actions实跑16阶段，保留逐项断言、幂等与1元反例证据；见[实测记录](journey/10-student-acceptance.md) |
 
 > 演示规则：每个阶段产物**先独立成文、再进入下一阶段**，允许中途返工，返工过程同样留痕——这就是真实研发的样子。
 

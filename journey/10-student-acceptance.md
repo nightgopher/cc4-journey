@@ -29,3 +29,9 @@ python3 app/verification/verify.py
 验收器另有11项反例/合同测试，覆盖通过标记与金额矛盾、布尔/数字混用、计数伪报、缺少职级场景、过期/未完成报告、空/非有限金额、错误资金来源、重复过程快照、不对应目标错误的失败，以及继承业务凭据清除。缺少依赖的CLI调用已实测生成failed报告。
 
 GitHub工作流为 `Student acceptance`，无需Secrets，支持手动与相关PR触发，成功或失败均上传已有证据包，保留14天。验收报告只证明用例范围；真实银行/ERP、真实供应商兼容性、未裁决的分段工资口径及视觉/人工交互检查仍有明确边界。
+
+## GitHub与接口实测
+
+[Student acceptance完整成功运行](https://github.com/nightgopher/cc4-journey/actions/runs/40490178792)，源码commit为 `cc1ae13a49425a2aa1c3876545c3064915421492`。已实际下载artifact `cc4-acceptance-cc1ae13a49425a2aa1c3876545c3064915421492`，再次运行证据校验：16阶段通过、source.dirty=false、清理passed；19组HTTP与MCP业务集成实际执行，7日105事件831项核对、幂等/无关记录/1元反例证据齐全，临时服务日志存在。此工作流没有配置任何私有Secrets。
+
+既有[应用发布流程](https://github.com/nightgopher/cc4-journey/actions/runs/40490155273)也通过，新增可选证据导出未破坏原开发/发布入口。独立报告命令已通过实际云端API验证：管理员读取并校验成功；无效token返回401、CLI退出1；导出内容不含登录密码或access_token。该接口测试仅登录/读取，没有推进业务。
