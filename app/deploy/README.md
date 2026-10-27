@@ -1,6 +1,8 @@
 # CC4 单机发布
 
-目标：Ubuntu 22.04 / x86_64，Nginx 提供 `/cc4/`，Go API 监听 `127.0.0.1:3101`，PostgreSQL 14 仅本机连接。服务器无需安装 Go、npm 或运行 Vite；构建在 GitHub Actions 完成。
+目标：Ubuntu 22.04 / x86_64，Nginx 对外提供 **8080 端口**，`/` 自动进入 `/cc4/`；Go API 监听 `127.0.0.1:3101`，PostgreSQL 14 仅本机连接。服务器无需安装 Go、npm 或运行 Vite；构建在 GitHub Actions 完成。
+
+当前入口：`http://150.5.143.32:8080/`。同时保留 80 端口下的 `/cc4/` 兼容入口；80 的原项目根路径转发配置不变。
 
 ## 首次准备
 

@@ -111,7 +111,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import json,os,urllib.error,urllib.request
-          base='http://150.5.143.32/cc4'
+          base='http://150.5.143.32:8080/cc4'
           def get(path):
               with urllib.request.urlopen(base+path,timeout=20) as response:return response.read()
           health=json.loads(get('/health'))

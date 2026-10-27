@@ -38,6 +38,8 @@ if ! grep -Fq -- "$key" /root/.ssh/authorized_keys; then
   printf '\nrestrict,command="/usr/local/sbin/cc4-deploy" %s\n' "$key" >> /root/.ssh/authorized_keys
 fi
 install -m 0644 "$script_dir/nginx-location.conf" /etc/nginx/snippets/cc4.conf
+install -m 0644 "$script_dir/nginx-port.conf" /etc/nginx/sites-available/cc4-port
+ln -sfn /etc/nginx/sites-available/cc4-port /etc/nginx/sites-enabled/cc4-port
 site=$(readlink -f /etc/nginx/sites-enabled/ai-video-studio)
 backup=$(mktemp /var/backups/cc4-nginx-before.XXXXXX)
 cp -p "$site" "$backup"
