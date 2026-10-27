@@ -32,6 +32,10 @@ func TestBusinessIntegration(t *testing.T) {
 	if !strings.HasPrefix(cfg.ConnConfig.Database, "cc4_test_") {
 		t.Fatal("integration tests only run in a cc4_test_* database")
 	}
+	// Ordinary scenarios must not inherit a developer's configured upstream.
+	// Only the final, explicit CC4_UPSTREAM_TEST_URL scenario opts into it.
+	t.Setenv("GOOKI_HOST", "")
+	t.Setenv("GOOKI_FILTER_PREFIX", "AF3加微信成功挂断")
 	ctx := context.Background()
 	if err = repo.Connect(ctx, dsn); err != nil {
 		t.Fatal(err)
