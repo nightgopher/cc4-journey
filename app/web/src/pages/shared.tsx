@@ -518,7 +518,14 @@ export function ResourcePage({
           run: () => void;
         }[] = [
           ...(canEditRow
-            ? [{ key: "edit", label: "编辑", kind: "ghost" as const, run: () => setEdit(row) }]
+            ? [
+                {
+                  key: "edit",
+                  label: "编辑",
+                  kind: "ghost" as const,
+                  run: () => setEdit(row),
+                },
+              ]
             : []),
           ...(detail
             ? [

@@ -250,7 +250,11 @@ export const MoneyCell = ({
 }) => {
   const n = typeof v === "number" ? v : Number(v);
   const active = tone && n !== 0 && !Number.isNaN(n) ? tone : undefined;
-  return <span className={`money ${active ? `money--${active}` : ""}`}>{money(v)}</span>;
+  return (
+    <span className={`money ${active ? `money--${active}` : ""}`}>
+      {money(v)}
+    </span>
+  );
 };
 export const StatCard = ({
   label,
@@ -395,11 +399,7 @@ export function DataTablePage<T>({
         </div>
       </header>
       {filters && <div className="filters">{filters}</div>}
-      {err && (
-        <Alert retry={() => setRetry((v) => v + 1)}>
-          {err}
-        </Alert>
-      )}
+      {err && <Alert retry={() => setRetry((v) => v + 1)}>{err}</Alert>}
       {loading ? (
         <div className="table-skeleton" role="status" aria-label="正在加载记录">
           <span>正在加载…</span>
@@ -410,7 +410,10 @@ export function DataTablePage<T>({
       ) : (
         !err && (
           <>
-            <div className="table-wrap" data-scrollable={scrollable || undefined}>
+            <div
+              className="table-wrap"
+              data-scrollable={scrollable || undefined}
+            >
               <div
                 ref={scrollRef}
                 className="table-scroll"
