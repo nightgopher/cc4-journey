@@ -92,7 +92,7 @@ class Simulation:
         if lease_owner:
             self.api.before_write = self.touch_lease
             self.api.simulation_owner = lease_owner
-        settings = {row["key"]: row["value"] for row in api.get("/settings")["settings"]}
+        settings = {row["key"]: row["value"] for row in api.get("/settings?includeSimulation=true")["settings"]}
         self.state = json.loads(settings[STATE_KEY]) if STATE_KEY in settings else {
             "version": 1, "origin": (today - dt.timedelta(days=days - 1)).isoformat(),
             "lastDay": None, "actors": {}, "hires": [], "daily": {}, "events": [], "checks": [], "pending": None,
@@ -128,7 +128,8 @@ class Simulation:
             raise ScenarioFailure(f"{title}: expected {expected}, actual {actual}")
 
     def money_check(self, title, expected_cents, actual, day=None):
-        self.check(title + "（元）", f"{Decimal(expected_cents)/100:.2f}", f"{Decimal(str(actual or 0)):.2f}", day)
+        displayed = "未返回金额" if actual is None else f"{Decimal(str(actual)):.2f}"
+        self.check(title + "（元）", f"{Decimal(expected_cents)/100:.2f}", displayed, day)
 
     def event(self, day, title, run):
         event_key = hashlib.sha256((day + "\n" + title).encode()).hexdigest()
@@ -276,6 +277,7 @@ class Simulation:
                 first = available[0]
                 self.actor("growth").post(f"/wechat-leads/{first['id']}/follow-up", {"content": "模拟·已联系家长，介绍99元体验课"})
                 self.actor("growth").request("PUT", f"/wechat-leads/{first['id']}", {"status": "contacted"})
+                self.state.setdefault("contacts", {})[day] = {"id": first["id"], "phone": first["real_phone"], "name": first["customer_name"]}
         self.event(day, "外呼：同步、分配微信线索并由员工跟进", run)
 
     def self_orders(self, day):
@@ -292,8 +294,9 @@ class Simulation:
         def submit(index):
             boundary = "cc4simulation" + day.replace("-", "") + str(index)
             chunks = []
+            contact_phone = self.state.get("contacts", {}).get(day, {}).get("phone", self.phone("customer_" + day))
             fields = {"employeeId": actor_id, "workDate": day, "productId": self.state["product"], "orders": 1,
-                      "parentPhone": self.phone("self_" + day + str(index)), "orderId": "SIM_" + day + "_" + str(index), "notes": "模拟业务审核样例"}
+                      "parentPhone": contact_phone if index in (0,3) else self.phone("self_" + day + str(index)), "orderId": "SIM_" + day + "_" + str(index), "notes": "模拟业务审核样例"}
             for key, value in fields.items():
                 chunks.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"\r\n\r\n{value}\r\n'.encode())
             for key in ("wechatPayScreenshot", "wechatChatScreenshot", "wechatContactScreenshot"):
@@ -316,6 +319,7 @@ class Simulation:
             replacement = submit(3)
             self.api.post(f"/daily-performance/order-details/{replacement}/approve", {"approved": True})
             income_check("新订单重新审核", expected["orders"] + 1)
+            self.state.setdefault("approvedOrders", {})[day] = replacement
             row = current()
             self.check("一笔通过、一笔驳回后只增加1单", expected["orders"] + 1, row["orders_count"], day)
             commission = {1: 20, 5: 100}[expected["orders"]]
@@ -389,6 +393,7 @@ class Simulation:
             income = self.api.rows("/finance/income", "income")
             refs = {"payment-" + str(p["id"]) for p in payments}
             self.money_check("逐笔回款对应收入", 10000, sum(Decimal(str(r["amount"])) for r in income if r.get("reference_id") in refs), day)
+            self.state.setdefault("receivables", {})[day] = {"id": row_id, "paymentIds": [p["id"] for p in payments], "paymentAmounts": {str(p["id"]): cents(p["amount"]) for p in payments}}
         self.event(day, "财务：100元应收，30元首款与70元尾款", run)
 
     def settlement(self, day):
@@ -417,10 +422,12 @@ class Simulation:
             ledger()
             self.api.request("PUT", path, {"paymentStatus": "paid", "paymentDate": day})
             ledger()
+            self.state.setdefault("settlements", {})[day] = {"id": salary_id, "year": date.year, "month": date.month, "amount": 70}
         self.event(day, "工资：70元离职结算、重复发放、撤销和再发放", run)
 
     def reconcile(self, day):
         income = self.api.rows("/finance/income", "income")
+        expected_sales = actual_sales = 0
         for date, actors in self.state["daily"].items():
             for key, expected in actors.items():
                 self.check_scope = "账务复核：" + self.state["actors"][key]["name"]
@@ -435,6 +442,58 @@ class Simulation:
                 ledger = [row for row in income if row.get("reference_type") == "daily_performance" and row.get("reference_id") == ref]
                 self.check("销售收入流水唯一", 1, len(ledger), date)
                 self.money_check("已确认订单与收入一致", expected["orders"] * 9900, sum(Decimal(str(row["amount"])) for row in ledger), date)
+                expected_sales += expected["orders"] * 9900
+                actual_sales += sum(cents(row["amount"]) for row in ledger)
+        actual_receipts = 0
+        for date, expected in self.state.get("receivables", {}).items():
+            self.check_scope = "账务复核：应收与回款"
+            row = self.api.get(f"/finance/receivable/{expected['id']}")["receivable"]
+            self.money_check("回读应收总额", 10000, row["amount"], date)
+            self.money_check("回读累计收款", 10000, row["received_amount"], date)
+            self.money_check("回读应收余额", 0, row["remaining_amount"], date)
+            payments = self.api.get(f"/finance/receivable/{expected['id']}/payments")["payments"]
+            self.check("回款记录保持原两笔", sorted(expected["paymentIds"]), sorted(row["id"] for row in payments), date)
+            self.check("回款分笔金额（分）", [3000, 7000], sorted(cents(row["amount"]) for row in payments), date)
+            for payment in payments:
+                planned = expected["paymentAmounts"][str(payment["id"])]
+                self.money_check("回款记录" + str(payment["id"]) + "金额", planned, payment["amount"], date)
+                corresponding = [row for row in income if row.get("reference_type") == "receivable_payment" and row.get("reference_id") == "payment-" + str(payment["id"])]
+                self.check("回款记录" + str(payment["id"]) + "收入唯一", 1, len(corresponding), date)
+                self.money_check("逐笔回款收入" + str(payment["id"]), planned, corresponding[0]["amount"], date)
+            refs = {"payment-" + str(pid) for pid in expected["paymentIds"]}
+            ledger = [row for row in income if row.get("reference_type") == "receivable_payment" and row.get("reference_id") in refs]
+            self.check("回款收入保持两笔", 2, len(ledger), date)
+            amount = sum(cents(row["amount"]) for row in ledger)
+            self.money_check("回读回款入账合计", 10000, Decimal(amount)/100, date)
+            actual_receipts += amount
+        expense = self.api.rows("/finance/expense", "expense")
+        actual_costs = 0
+        for date, expected in self.state.get("expenses", {}).items():
+            self.check_scope = "账务复核：运营费用"
+            own = [row for row in expense if row["id"] == expected["id"]]
+            self.check("费用记录存在且唯一", 1, len(own), date)
+            self.money_check("回读运营费用", 6550, own[0]["amount"], date)
+            actual_costs += cents(own[0]["amount"])
+        actual_wages = 0
+        for date, expected in self.state.get("settlements", {}).items():
+            self.check_scope = "账务复核：已发工资"
+            salaries = self.api.rows(f"/salary?year={expected['year']}&month={expected['month']}", "salaries")
+            own = [row for row in salaries if row["id"] == expected["id"]]
+            self.check("工资结算记录存在", 1, len(own), date)
+            self.check("离职工资仍为已发放", "paid", own[0]["payment_status"], date)
+            self.money_check("回读离职结算工资", 7000, own[0]["net_salary"], date)
+            paid = sum(cents(row["net_salary"]) for row in salaries if row["payment_status"] == "paid")
+            ledger = [row for row in expense if row.get("reference_type") == "salary" and row.get("reference_id") == f"salary-{expected['year']}-{expected['month']}"]
+            self.check("回读整月工资流水唯一", 1, len(ledger), date)
+            self.money_check("回读工资支出与已发工资一致", paid, ledger[0]["amount"], date)
+            actual_wages += cents(own[0]["net_salary"])
+        self.check_scope = "演练累计资金核对"
+        expected_inflow = expected_sales + len(self.state.get("receivables", {})) * 10000
+        expected_outflow = len(self.state.get("expenses", {})) * 6550 + len(self.state.get("settlements", {})) * 7000
+        self.money_check("累计流入", expected_inflow, Decimal(actual_sales + actual_receipts)/100, day)
+        self.money_check("累计流出", expected_outflow, Decimal(actual_costs + actual_wages)/100, day)
+        self.money_check("净流入等于流入减流出", expected_inflow - expected_outflow, Decimal(actual_sales + actual_receipts - actual_costs - actual_wages)/100, day)
+        self.report["money"] = {"sales": actual_sales/100, "inflow": (actual_sales+actual_receipts)/100, "outflow": (actual_costs+actual_wages)/100, "net": (actual_sales+actual_receipts-actual_costs-actual_wages)/100}
 
     def run_day(self, date):
         day = date.isoformat()
@@ -467,12 +526,28 @@ class Simulation:
         if index >= 3:
             self.leave(self.state["hires"][index - 3]["key"], day)
         def customer():
-            row_id = self.api.post("/customers", {"name": "模拟·体验课家长 " + day, "phone": self.phone("customer_" + day), "status": "active", "type": "individual"}, 201)["id"]
-            self.api.post(f"/customers/{row_id}/orders", {"totalAmount": 99, "orderDate": day}, 201)
-            self.check("客户订单金额", 9900, cents(self.api.get(f"/customers/{row_id}/orders")["orders"][0]["total_amount"]), day)
+            contact = self.state.get("contacts", {}).get(day, {})
+            phone = contact.get("phone", self.phone("customer_" + day))
+            row_id = self.api.post("/customers", {"name": "模拟·体验课家长 " + day, "phone": phone, "status": "active", "customerType": "individual"}, 201)["id"]
+            employee_id = self.state["actors"]["growth"]["id"]
+            self.api.post(f"/customers/{row_id}/orders", {"totalAmount": 99, "orderDate": day, "status":"confirmed", "employeeId":employee_id}, 201)
+            order = self.api.get(f"/customers/{row_id}/orders")["orders"][0]
+            self.check("客户订单金额", 9900, cents(order["total_amount"]), day)
+            self.check("客户订单归属销售", employee_id, order["employee_id"], day)
+            details = self.api.rows(f"/daily-performance/order-details?employee_id={employee_id}","orderDetails")
+            detail = next(row for row in details if row["id"] == self.state["approvedOrders"][day])
+            self.check("外呼线索、审核订单与客户使用同一手机号",phone,detail["parent_phone"],day)
+            lead_id = self.api.post("/leads", {"customerName":"模拟·体验课家长 " + day,"phone":phone,"assignedTo":employee_id,"notes":"模拟·外呼跟进后成交"},201)["id"]
+            self.api.post(f"/leads/{lead_id}/mark-paid",{})
+            if contact:
+                self.actor("growth").request("PUT",f"/wechat-leads/{contact['id']}",{"is_converted":True})
+                self.check("成交后微信线索转化状态",True,self.api.get(f"/wechat-leads/{contact['id']}")["data"]["is_converted"],day)
         self.event(day, "客户：建立体验课客户与订单档案", customer)
         self.receivable(day)
-        self.event(day, "财务：65.50元模拟运营支出", lambda: self.api.post("/finance/expense", {"category": "模拟运营工具", "amount": 65.5, "transactionDate": day, "description": "模拟经营工具费 " + day}, 201))
+        def operating_cost():
+            result = self.api.post("/finance/expense", {"category": "模拟运营工具", "amount": 65.5, "transactionDate": day, "description": "模拟经营工具费 " + day}, 201)
+            self.state.setdefault("expenses", {})[day] = {"id": result["id"]}
+        self.event(day, "财务：65.50元模拟运营支出", operating_cost)
         self.event(day, "汇总模拟团队当月业绩", lambda: self.actor("manager").post("/performance/aggregate-to-monthly", {"year": date.year, "month": date.month}))
         def sync_income():
             for _ in range(2):
@@ -490,6 +565,8 @@ class Simulation:
                 raise ScenarioFailure("Uncertain prior event requires operator reconciliation: " + self.state["pending"]["title"])
             if not self.api.get("/simulation/report")["enabled"]:
                 raise ScenarioFailure("Business simulation is not enabled on this server")
+            if self.state["daily"]:
+                self.reconcile(self.today.isoformat())
             self.save()
             self.setup()
             start = dt.date.fromisoformat(self.state["lastDay"]) + dt.timedelta(days=1) if self.state["lastDay"] else dt.date.fromisoformat(self.state["origin"])
@@ -508,6 +585,7 @@ class Simulation:
             title = (self.state.get("pending") or {}).get("title", "经营核对")
             message = (title + ": " + str(error))[:1000]
             self.report["status"], self.report["error"] = "failed", message
+            self.report.pop("money", None)
             self.save()
             raise ScenarioFailure(message) from error
 

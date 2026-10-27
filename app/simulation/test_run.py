@@ -12,7 +12,7 @@ class MemoryAPI:
         self.business_writes = 0
 
     def get(self, path):
-        if path == "/settings":
+        if path.startswith("/settings"):
             return {"settings": [{"key": key, "value": value} for key, value in self.values.items()]}
         if path == "/simulation/report":
             return {"enabled": True}
@@ -123,6 +123,47 @@ class SimulationSafetyTest(unittest.TestCase):
             with self.assertRaisesRegex(ScenarioFailure, "lease lost"):
                 api.post("/daily-performance", {"orders": 5})
             send.assert_not_called()
+
+    def test_missing_zero_balance_is_not_treated_as_zero(self):
+        simulation = self.simulation()
+        with self.assertRaises(ScenarioFailure):
+            simulation.money_check("应收余额", 0, None)
+
+    def test_replay_detects_a_reversed_salary_payment(self):
+        simulation = self.simulation()
+        day = "2026-10-27"
+        simulation.state["settlements"] = {day: {"id": 4, "year": 2026, "month": 10, "amount": 70}}
+        def rows(path, key):
+            if key == "salaries":
+                return [{"id": 4, "net_salary": 70, "payment_status": "pending"}]
+            return []
+        simulation.api.rows = rows
+        with self.assertRaisesRegex(ScenarioFailure, "离职工资仍为已发放"):
+            simulation.reconcile(day)
+
+    def test_replay_detects_operating_cost_corruption(self):
+        simulation = self.simulation()
+        day = "2026-10-27"
+        simulation.state["expenses"] = {day: {"id": 3}}
+        simulation.api.rows = lambda path, key: [{"id": 3, "amount": "65.51"}] if key == "expense" else []
+        with self.assertRaisesRegex(ScenarioFailure, "回读运营费用"):
+            simulation.reconcile(day)
+
+    def test_equal_total_does_not_hide_wrong_per_payment_income(self):
+        simulation = self.simulation()
+        day = "2026-10-27"
+        simulation.state["receivables"] = {day: {"id": 9, "paymentIds": [1,2], "paymentAmounts": {"1":3000,"2":7000}}}
+        original_get = simulation.api.get
+        def get(path):
+            if path.endswith("/payments"):
+                return {"payments":[{"id":1,"amount":30},{"id":2,"amount":70}]}
+            if path.startswith("/finance/receivable/"):
+                return {"receivable":{"amount":100,"received_amount":100,"remaining_amount":0}}
+            return original_get(path)
+        simulation.api.get = get
+        simulation.api.rows = lambda path,key: [{"reference_type":"receivable_payment","reference_id":"payment-1","amount":50}, {"reference_type":"receivable_payment","reference_id":"payment-2","amount":50}] if key=="income" else []
+        with self.assertRaisesRegex(ScenarioFailure,"逐笔回款收入"):
+            simulation.reconcile(day)
 
 
 if __name__ == "__main__":

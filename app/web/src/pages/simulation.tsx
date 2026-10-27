@@ -8,6 +8,7 @@ import {
   Status,
 } from "../components/kit";
 import { request } from "../lib/api";
+import { money } from "../lib/tokens";
 import { SimpleHeader, useRemote } from "./shared";
 
 interface Check {
@@ -24,6 +25,7 @@ interface Event {
   status: string;
 }
 interface Report {
+  money?: { sales: number; inflow: number; outflow: number; net: number };
   status: "running" | "passed" | "failed";
   origin: string;
   through: string | null;
@@ -151,10 +153,27 @@ export function SimulationPage() {
           </section>
           <div className="summary-strip">
             <StatCard label="演练天数" value={report.summary?.days ?? "—"} />
-            <StatCard label="业务事件" value={report.events.length} />
+            <StatCard label="业务事件" value={events.length} />
             <StatCard label="核对通过" value={checks.length - failed} />
             <StatCard label="发现差异" value={failed} />
           </div>
+          {report.status === "passed" && report.money && (
+            <div className="summary-strip">
+              <StatCard
+                label="演练订单销售"
+                value={money(report.money.sales)}
+              />
+              <StatCard
+                label="演练累计流入"
+                value={money(report.money.inflow)}
+              />
+              <StatCard
+                label="演练累计流出"
+                value={money(report.money.outflow)}
+              />
+              <StatCard label="演练净流入" value={money(report.money.net)} />
+            </div>
+          )}
           <nav className="tabs" aria-label="演练报告分类">
             <Btn
               kind={tab === "checks" ? "primary" : "ghost"}

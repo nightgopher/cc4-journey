@@ -669,7 +669,7 @@ func (h *apiHandler) listSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		rows = filtered
 	}
-	if role != "admin" {
+	if role != "admin" || r.URL.Query().Get("includeSimulation") != "true" {
 		filtered := []repo.Setting{}
 		for _, s := range rows {
 			if !strings.HasPrefix(s.Key, "business_simulation_") {
