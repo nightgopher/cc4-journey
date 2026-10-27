@@ -4,6 +4,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -57,7 +58,7 @@ func Router(jwtSecret string) http.Handler {
 	})
 
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "OK", "timestamp": time.Now().UTC().Format(time.RFC3339Nano)})
+		writeJSON(w, http.StatusOK, map[string]string{"status": "OK", "timestamp": time.Now().UTC().Format(time.RFC3339Nano), "revision": os.Getenv("CC4_RELEASE_SHA")})
 	})
 
 	r.Route("/api/v1", func(r chi.Router) {

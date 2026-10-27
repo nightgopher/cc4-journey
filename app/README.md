@@ -28,6 +28,8 @@ VITE_API_BASE_URL=http://localhost:3101/api/v1 npm run dev -- --host 127.0.0.1 -
 
 生产静态文件用 `npm run build` 生成在 `app/web/dist/`（生成目录不入库，已移除历史跟踪的旧版构建产物）。构建内含严格 TypeScript 检查。静态托管与 API 地址由部署配置决定。
 
+云端单机部署与 GitHub Actions 配置见 [部署说明](deploy/README.md)。线上前端构建使用 `/cc4/` 基路径和同源 `/cc4/api/v1`，数据库与截图独立持久化。
+
 ## 配置
 
 | 变量 | 默认或用途 |

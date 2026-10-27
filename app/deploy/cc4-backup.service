@@ -1,0 +1,15 @@
+[Unit]
+Description=CC4 database and uploads backup
+After=postgresql.service
+
+[Service]
+Type=oneshot
+User=cc4
+Group=cc4
+ExecStart=/usr/local/lib/cc4/backup.sh
+TimeoutStartSec=120
+NoNewPrivileges=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/cc4/backups
+UMask=0077

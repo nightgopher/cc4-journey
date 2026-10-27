@@ -1,0 +1,27 @@
+[Unit]
+Description=CC4 Go business application
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=cc4
+Group=cc4
+WorkingDirectory=/var/lib/cc4
+EnvironmentFile=/etc/cc4.env
+ExecStart=/opt/cc4/current/bin/cc4-server
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/cc4/uploads
+UMask=0077
+MemoryHigh=384M
+MemoryMax=512M
+TasksMax=128
+
+[Install]
+WantedBy=multi-user.target

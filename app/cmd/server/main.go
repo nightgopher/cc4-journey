@@ -19,7 +19,10 @@ import (
 
 // 与存量 docker-compose 默认值一致的环境变量约定：
 // PORT / DB_HOST / DB_PORT / DB_NAME / DB_USER / DB_PASSWORD / JWT_SECRET
+var version = "dev"
+
 func main() {
+	_ = os.Setenv("CC4_RELEASE_SHA", version)
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "3101"

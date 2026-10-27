@@ -1,0 +1,128 @@
+name: Deploy CC4 application
+
+on:
+  push:
+    branches: [main]
+    paths: ['app/**', '.github/workflows/deploy-cc4.yml']
+  pull_request:
+    paths: ['app/**', '.github/workflows/deploy-cc4.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cc4-application-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test-build-deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: root
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: cc4_test_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U root -d cc4_test_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: app/go.mod
+          cache: false
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: app/web/package-lock.json
+      - name: Test Go and deployment scripts
+        working-directory: app
+        run: |
+          set -euo pipefail
+          go test -race ./...
+          go vet ./...
+          bash -n deploy/bootstrap.sh deploy/deploy.sh deploy/backup.sh
+          python3 -m unittest discover -s deploy -p 'test_*.py'
+      - name: Run PostgreSQL 14 business integration
+        working-directory: app
+        env:
+          PGPASSWORD: ci-only-password
+          PGHOST: 127.0.0.1
+          PGUSER: root
+          CC4_MIGRATION_TEST_DATABASE: cc4_test_migrations
+          CC4_TEST_DATABASE_URL: postgres://root@127.0.0.1:5432/cc4_test_ci?sslmode=disable
+        run: |
+          set -euo pipefail
+          createdb cc4_test_migrations
+          python3 -m unittest discover -s deploy -p 'test_migrations.py'
+          psql -h 127.0.0.1 -U root -d cc4_test_ci -v ON_ERROR_STOP=1 -f migrations/000_baseline_schema.sql > /dev/null
+          psql -h 127.0.0.1 -U root -d cc4_test_ci -v ON_ERROR_STOP=1 -f migrations/001_go_completion.sql > /dev/null
+          go test -race ./internal/api -run TestBusinessIntegration -count=1 -v
+      - name: Build production frontend
+        working-directory: app/web
+        env:
+          VITE_API_BASE_URL: /cc4/api/v1
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run format:check
+          npm run build -- --base=/cc4/
+      - name: Build Linux release bundle
+        env:
+          CGO_ENABLED: '0'
+          GOOS: linux
+          GOARCH: amd64
+        run: |
+          set -euo pipefail
+          mkdir -p app/bin
+          cd app
+          go build -trimpath -ldflags "-s -w -X main.version=$GITHUB_SHA" -o bin/cc4-server ./cmd/server
+          cd ..
+          python3 app/deploy/build_release.py --revision "$GITHUB_SHA" --output /tmp/cc4-release.tar.gz
+      - name: Deploy using restricted SSH key
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.CC4_APP_DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.CC4_APP_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_SSH_KEY"
+          test -n "$DEPLOY_KNOWN_HOSTS"
+          install -d -m 0700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/cc4_deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 0600 ~/.ssh/cc4_deploy ~/.ssh/known_hosts
+          trap 'rm -f ~/.ssh/cc4_deploy' EXIT
+          ssh -T -i ~/.ssh/cc4_deploy -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 root@150.5.143.32 "deploy $GITHUB_SHA" < /tmp/cc4-release.tar.gz
+      - name: Verify public release and authentication boundary
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          python3 - <<'PY'
+          import json,os,urllib.error,urllib.request
+          base='http://150.5.143.32/cc4'
+          def get(path):
+              with urllib.request.urlopen(base+path,timeout=20) as response:return response.read()
+          health=json.loads(get('/health'))
+          assert health['status']=='OK' and health['revision']==os.environ['GITHUB_SHA'],health
+          assert json.loads(get('/version.json'))['revision']==os.environ['GITHUB_SHA']
+          html=get('/').decode()
+          assert '/cc4/assets/' in html and 'localhost' not in html
+          try:get('/api/v1/employees')
+          except urllib.error.HTTPError as error:assert error.code==401,error.code
+          else:raise AssertionError('Protected API allowed anonymous access')
+          print('Public frontend, matching API revision and authentication boundary verified.')
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as output:
+              output.write('[Open CC4]('+base+'/) · [Health]('+base+'/health)\n\nDeployed `'+health['revision']+'`. PostgreSQL 14 business integration, frontend build and public checks passed.\n')
+          PY
