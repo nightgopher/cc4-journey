@@ -24,12 +24,28 @@ type apiHandler struct {
 	jwtSecret []byte
 }
 
+// cors 对齐存量 cors() 中间件行为：全放开 + 预检放行。
+// （生产环境应收紧 CORS_ORIGIN；对齐期保持与 JS 后端一致。）
+func cors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // Router 构建对齐版路由树。
 // 存量挂载点：/api/v1/auth|employees|daily-performance|salary|workdays|approvals|...
 // 本期对齐 P0 六组；其余组按同一模式增量补齐。
 func Router(jwtSecret string) http.Handler {
 	h := &apiHandler{jwtSecret: []byte(jwtSecret)}
 	r := chi.NewRouter()
+	r.Use(cors)
 
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "OK", "timestamp": time.Now().UTC().Format(time.RFC3339Nano)})
