@@ -11,3 +11,4 @@ app/deploy/__pycache__/
 app/simulation/__pycache__/
 app/verification/__pycache__/
 app/verification-results/
+.DS_Store
