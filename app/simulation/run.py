@@ -411,12 +411,15 @@ class Simulation:
             salary_id = next(row["id"] for row in rows if row["employee_id"] == actor_id)
             path = f"/salary/{salary_id}/payment-status"
             def ledger():
-                salary_rows = self.api.rows(f"/salary?year={date.year}&month={date.month}", "salaries")
-                paid = sum(cents(row["net_salary"]) for row in salary_rows if row["payment_status"] == "paid")
+                salary_rows = self.api.rows(f"/salary?employee_id={actor_id}&year={date.year}&month={date.month}", "salaries")
+                own = next(row for row in salary_rows if row["id"] == salary_id)
+                paid = cents(own["net_salary"]) if own["payment_status"] == "paid" else 0
                 expense = self.api.rows("/finance/expense", "expense")
-                matching = [row for row in expense if row.get("reference_type") == "salary" and row.get("reference_id") == f"salary-{date.year}-{date.month}"]
-                self.check("整月工资流水唯一", 1 if paid > 0 else 0, len(matching), day)
-                self.money_check("工资支出等于已发工资合计", paid, sum(Decimal(str(row["amount"])) for row in matching), day)
+                matching = [row for row in expense if row.get("reference_type") == "salary" and row.get("reference_id") == f"salary-record-{salary_id}"]
+                self.check("每次发放对应唯一工资流水", 1 if paid > 0 else 0, len(matching), day)
+                self.money_check("工资支出等于该笔已发工资", paid, sum(Decimal(str(row["amount"])) for row in matching), day)
+                if matching:
+                    self.check("工资流水日期等于发放日期", day, str(matching[0]["transaction_date"])[:10], day)
             self.api.request("PUT", path, {"paymentStatus": "paid", "paymentDate": day})
             ledger()
             self.api.request("PUT", path, {"paymentStatus": "paid", "paymentDate": day})
@@ -500,10 +503,10 @@ class Simulation:
             self.check("工资结算记录存在", 1, len(own), date)
             self.check("离职工资仍为已发放", "paid", own[0]["payment_status"], date)
             self.money_check("回读离职结算工资", 7000, own[0]["net_salary"], date)
-            paid = sum(cents(row["net_salary"]) for row in salaries if row["payment_status"] == "paid")
-            ledger = [row for row in expense if row.get("reference_type") == "salary" and row.get("reference_id") == f"salary-{expected['year']}-{expected['month']}"]
-            self.check("回读整月工资流水唯一", 1, len(ledger), date)
-            self.money_check("回读工资支出与已发工资一致", paid, ledger[0]["amount"], date)
+            ledger = [row for row in expense if row.get("reference_type") == "salary" and row.get("reference_id") == f"salary-record-{expected['id']}"]
+            self.check("回读该笔工资流水唯一", 1, len(ledger), date)
+            self.money_check("回读工资支出与该笔已发工资一致", cents(own[0]["net_salary"]), ledger[0]["amount"], date)
+            self.check("回读工资流水日期等于发放日期", date, str(ledger[0]["transaction_date"])[:10], date)
             actual_wages += cents(own[0]["net_salary"])
         self.check_scope = "演练累计资金核对"
         expected_inflow = expected_sales + len(self.state.get("receivables", {})) * 10000

@@ -326,6 +326,47 @@ func TestBusinessIntegration(t *testing.T) {
 			t.Fatal("salary expense not reversed")
 		}
 	})
+	t.Run("each salary payment is its own expense on its own date", func(t *testing.T) {
+		paid := map[string]int{}
+		for i, date := range []string{"2026-09-22", "2026-09-26"} {
+			e, err := repo.CreateEmployee(ctx, repo.EmployeeInput{Name: fmt.Sprintf("发薪日期%d", i), EmployeeCode: fmt.Sprintf("PAYDATE_%d", i), Phone: fmt.Sprintf("1880000030%d", i), Password: "testpass", Level: "trainee", JoinDate: "2026-09-01"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			request(t, adminToken, "POST", "/daily-performance", map[string]any{"employeeId": e.ID, "workDate": "2026-09-21", "orders": 5}, 201)
+			request(t, adminToken, "POST", "/salary/calculate", map[string]any{"employeeId": e.ID, "periodYear": 2026, "periodMonth": 9}, 200)
+			var id int
+			if err = repo.Pool.QueryRow(ctx, `SELECT id FROM salary_records WHERE employee_id=$1 AND period_year=2026 AND period_month=9`, e.ID).Scan(&id); err != nil {
+				t.Fatal(err)
+			}
+			request(t, adminToken, "PUT", fmt.Sprintf("/salary/%d/payment-status", id), map[string]any{"paymentStatus": "paid", "paymentDate": date}, 200)
+			paid[date] = id
+		}
+		// Paying the first record again later must not move it.
+		request(t, adminToken, "PUT", fmt.Sprintf("/salary/%d/payment-status", paid["2026-09-22"]), map[string]any{"paymentStatus": "paid", "paymentDate": "2026-09-30"}, 200)
+		for date, id := range paid {
+			var count int
+			var day string
+			var amount float64
+			if err = repo.Pool.QueryRow(ctx, `SELECT COUNT(*),COALESCE(MAX(transaction_date)::text,''),COALESCE(SUM(amount),0)::float FROM finance_records WHERE reference_type='salary' AND reference_id=$1`, fmt.Sprintf("salary-record-%d", id)).Scan(&count, &day, &amount); err != nil {
+				t.Fatal(err)
+			}
+			if count != 1 || day != date || amount != 70 {
+				t.Fatalf("salary %d: %d expenses dated %q amount %v, want one 70 on %s", id, count, day, amount, date)
+			}
+		}
+		var early float64
+		repo.Pool.QueryRow(ctx, `SELECT COALESCE(SUM(amount),0)::float FROM finance_records WHERE reference_type='salary' AND transaction_date BETWEEN '2026-09-22' AND '2026-09-25'`).Scan(&early)
+		if early != 70 {
+			t.Fatalf("outflow 09-22..25 = %v, want 70 (the later payment must not absorb it)", early)
+		}
+		request(t, adminToken, "PUT", fmt.Sprintf("/salary/%d/payment-status", paid["2026-09-26"]), map[string]any{"paymentStatus": "pending"}, 200)
+		var left int
+		repo.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM finance_records WHERE reference_type='salary' AND reference_id IN ($1,$2)`, fmt.Sprintf("salary-record-%d", paid["2026-09-22"]), fmt.Sprintf("salary-record-%d", paid["2026-09-26"])).Scan(&left)
+		if left != 1 {
+			t.Fatalf("revoking one payment must keep the other, left %d", left)
+		}
+	})
 	t.Run("wechat import deduplication, following, stats and exports", func(t *testing.T) {
 		records := []map[string]any{{"call_record_id": "TEST_CALL", "customer_name": "微信客户测试", "real_phone": "18800000009", "wechat_added": true, "assigned_to": employeeID, "call_time": "2026-10-26T12:00:00Z"}}
 		request(t, adminToken, "POST", "/wechat-leads/import", map[string]any{"records": records}, 201)
