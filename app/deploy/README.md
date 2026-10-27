@@ -12,7 +12,9 @@
 4. `/etc/cc4.env` 为 root 0600，自动生成独立 DB/JWT 密钥。可追加 `GOOKI_HOST / GOOKI_USERNAME / GOOKI_PASSWORD`，不要提交该文件。
 5. 配置仓库 Secrets：`CC4_APP_DEPLOY_SSH_KEY`（专用私钥）、`CC4_APP_KNOWN_HOSTS`（经已有可信 SSH 连接核对的主机公钥）。该发布公钥有 `restrict,command="/usr/local/sbin/cc4-deploy"` 限制，不能运行交互命令或转发端口。
 
-空库首次发布会应用全量基线和增量。基线中的本机 `OWNER TO root` 在打包时移除，所有对象归 `cc4` 所有。既有完整数据库快照应先用 `pg_dump --no-owner --no-acl` 导入空库，再用同一打包逻辑生成规范化 SQL，明确执行 `migrate.py <规范化迁移目录> --adopt-existing`。采用记录仅允许当前 `000 / 001` 两个迁移且检查关键表/字段；后续发布不自动采用未知库。
+空库首次发布会应用全量基线和增量。基线中的本机 `OWNER TO root` 在打包时移除，所有对象归 `cc4` 所有。既有完整数据库快照应先用 `pg_dump --no-owner --no-acl` 导入空库，再用同一打包逻辑生成规范化 SQL，明确执行 `migrate.py <规范化迁移目录> --adopt-existing`。采用记录仅跳过已核对的 `000 / 001` 快照基线并检查关键表/字段，后续增量仍实际执行；后续发布不自动采用未知库。
+
+`002` 迁移对齐导入数据的自增序列：锁住对应表后读取最大主键，只向上推进落后的序列，保留已领先的序列及空表初始值。它解决历史显式 ID 已存在但新建记录撞号的问题，不改动业务记录。
 
 初始账号通过受保护的管理员通道配置。数据库快照、密码、截图和登录凭据均不进入 Git 仓库或 Actions 构建产物。
 
