@@ -2,6 +2,32 @@
 
 更新时间：2026-10-27（America/Los_Angeles）。Go业务补全、20页前端、上游模拟、连续经营与OCR报销均已推送main。**主系统已通过GitHub Actions部署到 [8080入口](http://150.5.143.32:8080/cc4/)**，当前运行源码`a774812fd1af95edba178c44d2c594455a66356d`，见[成功发布](https://github.com/nightgopher/cc4-journey/actions/runs/40511109706)；后续以`/cc4/health`为准。结构见`journey/07-main-application-deployment.md`，经营演练见08/09，学员验收见10，OCR实现与最终证据见[journey/13-ocr-reimbursement.md](journey/13-ocr-reimbursement.md)。模拟服务运行版本仍为`46a7c666690be1dbfd8c90241237670f008e94c0`。
 
+## 2026-10-27 · 前端打磨两轮 + 本地服务修复
+
+### 本地服务修复（3101）
+
+本地 `bin/cc4-server` 为老构建（无报销接口），报销页整页 404。已补：本地演示库应用迁移 002/003/004（新增 `reimbursement_claims`/`reimbursement_events`/`mcp_credentials` 表）；从 HEAD 干净 worktree 重建二进制（工作区内 `app/internal/storage/` 重构由并行会话进行中、暂不可编译，未触碰），带原环境变量重启 3101，`/health`、登录、线索、报销接口全部 200。注意：并行会话的 go.mod/go.sum 已引入火山 TOS SDK（未提交），其完成后需再次重建本地服务。本地 OCR 识别若显示未配置，需按新代码要求的变量名（README 记 PADDLEOCR_API_KEY）补齐环境变量，上传与人工填写不受影响。
+
+### 前端打磨（impeccable critique 两轴评审 → polish）
+
+第一轮：错误文案人话化（状态码不进 UI，9 类兜底文案）；业务语义修复（产品"在售/已停售"、按实体搜索占位、"发送通知"/"新增配置"按钮）；行操作分级（标记成交 primary、删除 ghost-danger）；移动端操作列 sticky 固定 + 滚动渐隐提示；¥0 去语义色；styles.css 25 处绿色时代残留清为蓝灰（DESIGN.md/design.json 令牌同步）；环境提示条 accent 单侧边修复（detector 唯一 warning）；侧栏激活项自动滚入视野；空状态带下一步引导。
+
+第二轮：行内操作超过 3 个时收敛为「主操作 + 首个常规操作 + 更多菜单」（kit 新增 RowMenu：fixed 定位防表格裁剪、Escape/外点关闭、焦点还原、danger 项红色），线索行从 5 个等权按钮收敛为 [标记成交][编辑][更多]；本地服务修复后报销页 404 消失，恢复为识别服务提示与上传引导。
+
+验证：`tsc --noEmit` 与 `vite build` 通过；Playwright 实登录截图复验（桌面 + 390px 移动端，菜单展开态、报销页、员工页）。已知边界：月份输入框英文显示为 headless Chromium 缺中文 locale 的环境现象；财务页四 tab 承载四类数据对象、表格排序与批量操作为功能级迭代，本轮未动。
+
+## 2026-10-27 · 旅程文档链补齐（培训案例化）
+
+按培训案例要求（对照《AI 全栈开发方法与实践》文档的案例设计方法）补齐旅程前半程，全程标注诚信口径「按真实业务规则重演」：
+
+- `journey/00-original-brief.md`：改写为**管理层立项**视角的口述留痕（保留模糊性），文件头注明案例取材与重演性质；原客户视角版本保留在 git 历史。
+- `journey/01-requirements-clarify.md`：回填两轮问答——第一批 10 问的管理层回答；第二批边界追问（钱路径）形成 **D1–D7 裁决表**（AI 提案、管理层拍板）；产出事实清单 F1–F12、假设 H1–H4、本期不做清单。事实与 `cc-business-rules.md` 及上线裁决一致。
+- `journey/02-prd.md`（新增）：按 forge-prd-entity 阶段 2 结构（背景→整体架构→产品设计），含微信线索五态、业绩明细三态、工资三态的状态×操作表，以及提成阶梯、跨月顺延（D1）、回款超额拦截等验收条目。
+- `journey/03-design.md`（新增）：技术栈选型理由、数据模型关键约束、状态机与定时任务、API 分组概览、8 条工程决策（均回溯 PRD 条目）、部署形态与三层验收入口。
+- `README.md`：旅程地图 00–03 更新为完成态，背景改为管理层立项叙事，补充案例性质说明。
+
+用途定位：本仓库作为培训案例，支撑「关键环节跟练」式教学——学员拿 00 原始需求练需求梳理与 PRD（对应培训文档 2.3、3.1 方法），01/02/03 作为参考答案。
+
 ## 2026-10-27 · 演示就绪与OCR报销
 
 核心业务已经可以教学演示；新增的[智能报销入口](http://150.5.143.32:8080/cc4/?view=reimbursements)也已上线，默认使用真实PaddleOCR-VL-1.6异步识别。前端继续基于仓库external/frontend-design和ui-library-selector，复用现有工作台组件。
