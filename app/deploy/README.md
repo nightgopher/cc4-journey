@@ -20,6 +20,25 @@
 
 同时将`nginx-location.conf`中新加的两个`/cc4/samples/invoice-demo.png`和`.pdf`精确路由并入已安装的`/etc/nginx/snippets/cc4.conf`，`nginx -t`通过后reload。否则SPA兜底会把下载链接返回成HTML。发布检查会逐字节比对两个公开合成样例，并检查报销API匿名401；其他报销原图仍只能通过认证API读取。
 
+### 附件存储（火山引擎 TOS，可选）
+
+订单截图与报销原图默认存放在 `UPLOAD_DIR`。要改存到私有 TOS 桶，在 `/etc/cc4.env` 追加：
+
+```
+ATTACHMENT_STORAGE=tos
+TOS_ENDPOINT=https://tos-cn-beijing.volces.com
+TOS_REGION=cn-beijing
+TOS_BUCKET=<私有桶>
+TOS_KEY_PREFIX=cc4/
+TOS_ACCESS_KEY=<子账号AK>
+TOS_SECRET_KEY=<子账号SK>
+# TOS_SESSION_TOKEN=<使用STS临时凭证时填写>
+```
+
+- 端点必须是 `https://*.volces.com` 或 `*.ivolces.com`（同地域内网）。前缀必须以 `/` 结尾，不能以 `/` 开头。配置不完整时服务**拒绝启动**，不会静默退回本地磁盘。
+- 子账号只授予该桶该前缀下的 `PutObject / GetObject / DeleteObject`。桶保持私有、不开公共读；附件仍只能通过已认证的 API 读取，对象 ACL 为 private，并且禁止覆盖同名对象。
+- 已有本地附件需先迁移。迁移前先 `sudo -u cc4 env $(cat /etc/cc4.env | xargs) /opt/cc4/current/bin/cc4-server migrate-attachments` 统计数量，确认后加 `--apply`，逐个上传并逐字节校验。迁移不会删除本地文件，同名对象内容不一致时会停止。切换后 TOS 中查不到的对象仍会回退读取本地旧文件；而 TOS 不可用或鉴权失败时，返回 503，不用本地旧文件掩盖故障。
+
 初始账号通过受保护的管理员通道配置。数据库快照、密码、截图和登录凭据均不进入 Git 仓库或 Actions 构建产物。
 
 ## 自动发布

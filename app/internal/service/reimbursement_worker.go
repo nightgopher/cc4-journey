@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/nightgopher/cc4-journey/app/internal/repo"
+	"github.com/nightgopher/cc4-journey/app/internal/storage"
 )
 
 func receiptDirectory() string {
@@ -68,7 +69,15 @@ func RunReimbursementOCR(ctx context.Context, client *PaddleClient, directory st
 	copyClient := *client
 	copyClient.Model = j.Model
 	if j.State == "queued" {
-		id, err := copyClient.Submit(ctx, filepath.Join(directory, j.File))
+		store, err := storage.FromEnv(filepath.Dir(directory))
+		if err != nil {
+			return true, fail("附件存储配置无效，未提交识别")
+		}
+		raw, err := store.Read(ctx, "receipts/"+j.File)
+		if err != nil {
+			return true, fail("票据无法从附件存储读取，未提交识别")
+		}
+		id, err := copyClient.SubmitBytes(ctx, j.File, raw)
 		if err != nil {
 			return true, fail(paddleErrorText(err) + "；未自动重发")
 		}
