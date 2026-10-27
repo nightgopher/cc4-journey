@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Installed as a forced command for the Actions-only SSH key. Never executes an
-# uploaded binary as root; systemd starts it under the dedicated service user.
+# Fixed installer for the signed receiver and optional SSH forced command.
+# Never executes uploaded code as root; systemd uses the dedicated service user.
 set -Eeuo pipefail
 umask 077
 if [[ ${SSH_ORIGINAL_COMMAND:-} =~ ^deploy\ ([0-9a-f]{40})$ ]]; then
@@ -22,10 +22,10 @@ rollback() {
     if [[ -n $previous ]]; then
       ln -s "$previous" "$base/rollback.next"
       mv -Tf "$base/rollback.next" "$base/current"
-      systemctl restart cc4-lead-source-mock.service || true
+      timeout --foreground 50 systemctl restart cc4-lead-source-mock.service || true
       echo 'Deployment failed; previous release restored.' >&2
     else
-      systemctl stop cc4-lead-source-mock.service || true
+      timeout --foreground 50 systemctl stop cc4-lead-source-mock.service || true
       rm -f "$base/current"
       echo 'First deployment failed; service stopped.' >&2
     fi
@@ -34,6 +34,7 @@ rollback() {
   exit "$status"
 }
 trap rollback EXIT
+trap 'exit 124' TERM INT
 timeout 60 head -c 33554433 > "$incoming/bundle.tar.gz"
 [[ $(stat -c %s "$incoming/bundle.tar.gz") -le 33554432 ]]
 python3 /usr/local/lib/cc4-lead-source-mock/verify_release.py "$incoming"
@@ -48,7 +49,7 @@ fi
 ln -s "$release" "$base/current.next"
 mv -Tf "$base/current.next" "$base/current"
 switched=1
-systemctl restart cc4-lead-source-mock.service
+timeout --foreground 50 systemctl restart cc4-lead-source-mock.service
 healthy=0
 for attempt in {1..40}; do
   if curl --fail --silent --max-time 2 http://127.0.0.1:18081/health > "$incoming/health.json" &&

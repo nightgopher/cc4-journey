@@ -58,24 +58,30 @@ jobs:
           cd release
           sha256sum lead-source-mock > SHA256SUMS
           tar --format=ustar -czf bundle.tar.gz lead-source-mock SHA256SUMS
-      - name: Deploy using dedicated restricted SSH key
+      - name: Deploy signed release over HTTP
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         env:
-          DEPLOY_KEY: ${{ secrets.CC4_MOCK_SSH_PRIVATE_KEY }}
-          KNOWN_HOSTS: ${{ vars.CC4_MOCK_KNOWN_HOSTS }}
+          DEPLOY_SIGNING_KEY: ${{ secrets.CC4_MOCK_DEPLOY_SIGNING_KEY }}
         run: |
-          set -euo pipefail
-          test -n "$DEPLOY_KEY"
-          test -n "$KNOWN_HOSTS"
-          umask 077
-          key_dir=$(mktemp -d)
-          trap 'rm -rf "$key_dir"' EXIT
-          printf '%s\n' "$DEPLOY_KEY" > "$key_dir/id_ed25519"
-          printf '%s\n' "$KNOWN_HOSTS" > "$key_dir/known_hosts"
-          ssh -T -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-            -o ConnectTimeout=10 -o ServerAliveInterval=15 \
-            -o UserKnownHostsFile="$key_dir/known_hosts" -i "$key_dir/id_ed25519" \
-            "root@$DEPLOY_HOST" "deploy $GITHUB_SHA" < release/bundle.tar.gz
+          python3 - <<'PYDEPLOY'
+          import hashlib,hmac,json,os,pathlib,time,urllib.request,uuid
+          key=os.environ['DEPLOY_SIGNING_KEY']
+          assert len(key)>=32, 'Deployment signing key is missing'
+          body=pathlib.Path('release/bundle.tar.gz').read_bytes()
+          revision=os.environ['GITHUB_SHA']
+          stamp=str(int(time.time()))
+          nonce=uuid.uuid4().hex
+          digest=hashlib.sha256(body).hexdigest()
+          message=f'{revision}\n{stamp}\n{nonce}\n{digest}\n'.encode()
+          signed=hmac.new(key.encode(),message,hashlib.sha256).hexdigest()
+          headers={'Content-Type':'application/gzip','X-CC4-Revision':revision,'X-CC4-Timestamp':stamp,'X-CC4-Nonce':nonce,'X-CC4-SHA256':digest,'X-CC4-Signature':signed}
+          request=urllib.request.Request('http://'+os.environ['DEPLOY_HOST']+'/cc4-upstream-deploy/deploy',data=body,headers=headers)
+          with urllib.request.urlopen(request,timeout=420) as response:result=json.load(response)
+          assert result.get('status')=='deployed' and result.get('revision')==revision,result
+          receipt=hmac.new(key.encode(),f'deployed\n{revision}\n{nonce}\n'.encode(),hashlib.sha256).hexdigest()
+          assert result.get('nonce')==nonce and hmac.compare_digest(result.get('signature',''),receipt), 'Invalid deployment receipt'
+          print('Signed release deployed:',revision)
+          PYDEPLOY
       - name: Verify public API and pagination
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         env:

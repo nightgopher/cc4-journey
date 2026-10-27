@@ -46,19 +46,20 @@ go vet ./...
 
 ## GitHub Actions 发布
 
-[部署 workflow](../../.github/workflows/deploy-lead-source-mock.yml) 在 main 的本服务或 workflow 发生变更时执行，也支持手工 `workflow_dispatch`；PR 只测试和构建。步骤为 `go test -race` / `go vet` → 构建静态 Linux amd64 二进制 → 校验和与压缩包 → SSH 发布 → 公网版本、登录、分页与 30 条可导入线索检查。官方 Actions 固定到已核对的完整 commit SHA。
+[部署 workflow](../../.github/workflows/deploy-lead-source-mock.yml) 在 main 的本服务或 workflow 发生变更时执行，也支持手工 `workflow_dispatch`；PR 只测试和构建。步骤为 `go test -race` / `go vet` → 构建静态 Linux amd64 二进制 → 校验和与压缩包 → 带 HMAC 签名的 HTTP 发布 → 公网版本、登录、分页与 30 条可导入线索检查。官方 Actions 固定到已核对的完整 commit SHA。
 
 仓库配置：
 
 | 名称 | 类型 | 说明 |
 |---|---|---|
-| `CC4_MOCK_SSH_PRIVATE_KEY` | Actions Secret | 专用 Ed25519 发布密钥 |
+| `CC4_MOCK_DEPLOY_SIGNING_KEY` | Actions Secret | 仅用于本模拟服务发布的 HMAC 密钥 |
 | `CC4_MOCK_USERNAME` / `CC4_MOCK_PASSWORD` | Actions Secret | 公网契约检查使用的模拟账号 |
-| `CC4_MOCK_KNOWN_HOSTS` | Repository Variable | 已核对的目标服务器 SSH host key |
 
-首次准备服务器时，以现有管理 SSH 身份上传 `deploy/` 目录和专用公钥，然后运行 `bash deploy/bootstrap.sh /path/to/deploy-key.pub`。脚本创建服务账号、systemd unit、随机账号密码及签名密钥，并把专用 SSH key 限制为发布命令。它不上传应用二进制。
+首次准备服务器时，以现有管理 SSH 身份上传 `deploy/` 目录，然后运行 `bash deploy/bootstrap.sh`。脚本创建服务账号、systemd unit、随机账号密码及发布签名密钥。它不上传应用二进制。可选公钥参数仅用于启用受限 SSH 发布备用通道。
 
-本次服务器使用现有 Nginx HTTP 默认站点 `/etc/nginx/sites-available/orionstar`，只插入独立 include；添加 `/cc4-upstream/` 路径，转发至 `127.0.0.1:18081`。配置前备份、`nginx -t` 通过后 reload。该路径不记录含登录参数的访问日志。
+首次 Actions 运行已通过测试和构建，但 GitHub hosted runner 连接本服务器 TCP 22 超时；本机防火墙为 ACCEPT。实际部署改走现有 80 端口的 `/cc4-upstream-deploy/deploy`，不依赖新的防火墙开放。请求对 commit、时间、一次性 nonce 和发布包 SHA-256 做 HMAC-SHA256 签名；密钥不在请求中发送，接收端拒绝过期、重放和被修改的包，并签名返回部署回执。公开传输的发布包仅含公开项目的二进制和校验文件，不包含运行凭据。
+
+本次服务器使用现有 Nginx HTTP 默认站点 `/etc/nginx/sites-available/orionstar`，只插入独立 include；添加 `/cc4-upstream/` 路径，转发至 `127.0.0.1:18081`。配置前备份、`nginx -t` 通过后 reload。该路径不记录含登录参数的访问日志。发布接收进程仅监听 `127.0.0.1:18082`，固定调用归档验证和版本切换程序，不接受任意命令；systemd 限制它只可写本模拟服务的版本目录。
 
 运行配置为 `/etc/cc4-lead-source-mock.env`（root 0600），程序以 `cc4-lead-mock` 用户运行。程序与版本目录在 `/opt/cc4-lead-source-mock/releases/<commit>/`，`current` 为原子切换的软链接。发布包限制为压缩 32 MiB、解压 34 MiB，先限制解压总量，再逐个检查固定长度的普通文件头，拒绝扩展头、路径穿越与额外文件，并验证 SHA-256；健康检查失败时恢复上一个版本。服务关闭时等待在途请求排空，最长 35 秒。
 

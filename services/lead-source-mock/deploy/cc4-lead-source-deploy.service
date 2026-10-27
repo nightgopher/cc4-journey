@@ -1,0 +1,24 @@
+[Unit]
+Description=CC4 signed release receiver
+After=network.target
+
+[Service]
+Type=simple
+User=root
+EnvironmentFile=/etc/cc4-lead-source-deploy.env
+ExecStart=/usr/bin/python3 /usr/local/lib/cc4-lead-source-mock/deploy_http.py
+Restart=on-failure
+RestartSec=2
+TimeoutStopSec=500
+KillMode=mixed
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/cc4-lead-source-mock
+UMask=0077
+MemoryMax=192M
+TasksMax=32
+
+[Install]
+WantedBy=multi-user.target
