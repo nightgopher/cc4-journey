@@ -2,6 +2,8 @@
 
 本仓库记录一次完整的演练：**客户只给一段模糊的口述需求，AI 驱动的研发流程从需求澄清开始，一路走到设计、开发、部署**。每个阶段留下可审计的过程产物，最终沉淀出一套可复用的流程技能（Skill）。
 
+运行入口：**[CC4 工作台 · 8080 端口](http://150.5.143.32:8080/)**。GitHub Actions 自动发布、运行结构与实测结果见 [部署记录](journey/07-main-application-deployment.md)。
+
 ## 背景
 
 我们是做教育体验课电话销售的。客户跟进、员工出勤、每天业绩、月底工资，目前全靠表格和群消息管理，混乱且经常扯皮。我们希望有一个系统把这些事串起来——但客户自己也说不清楚具体要什么功能。
@@ -17,7 +19,7 @@
 | 02 PRD | journey/02-prd.md | ⏳ 待开始 |
 | 03 技术设计 | journey/03-design.md | ⏳ 待开始 |
 | 04 开发 | [app/README.md](app/README.md)、[PROGRESS.md](PROGRESS.md) | ✅ Go 业务补全与 18 页 React 工作台，详见验证范围 |
-| 05 部署与验收 | journey/05-deployment.md | ⏳ 待开始 |
+| 05 部署与验收 | [主系统部署](journey/07-main-application-deployment.md)、[上游模拟服务](journey/06-upstream-mock-deployment.md) | ✅ 两个服务均由 GitHub Actions 发布；主系统独立 8080 入口、持久化数据库与上传、每日备份 |
 
 > 演示规则：每个阶段产物**先独立成文、再进入下一阶段**，允许中途返工，返工过程同样留痕——这就是真实研发的样子。
 
@@ -36,7 +38,8 @@ cc4-journey/
 │   ├── 01-requirements-clarify.md
 │   ├── 02-prd.md
 │   ├── 03-design.md
-│   └── 05-deployment.md
+│   ├── 06-upstream-mock-deployment.md
+│   └── 07-main-application-deployment.md
 └── app/                     # 系统代码（阶段 04 产出）
 ```
 
