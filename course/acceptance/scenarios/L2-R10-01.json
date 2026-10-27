@@ -1,0 +1,80 @@
+{
+ "id": "L2-R10-01",
+ "layer": "L2",
+ "rules": [
+  "R10",
+  "R08"
+ ],
+ "title": "一周资金闭环：订单、回款、费用",
+ "steps": [
+  {
+   "check": "get_ledger",
+   "args": {
+    "from": "2026-08-03",
+    "to": "2026-08-07"
+   },
+   "as": "L0"
+  },
+  {
+   "do": "hire",
+   "args": {
+    "name": "验收{run}-F",
+    "level": "trainee",
+    "date": "2026-08-03"
+   },
+   "as": "F"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$F",
+    "date": "2026-08-03",
+    "count": 3
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$F",
+    "date": "2026-08-05",
+    "count": 2
+   }
+  },
+  {
+   "do": "create_receivable",
+   "args": {
+    "amount": 100,
+    "date": "2026-08-04"
+   },
+   "as": "R"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$R",
+    "amount": 100,
+    "date": "2026-08-06"
+   }
+  },
+  {
+   "do": "record_expense",
+   "args": {
+    "amount": 65.5,
+    "date": "2026-08-07"
+   }
+  },
+  {
+   "check": "get_ledger",
+   "args": {
+    "from": "2026-08-03",
+    "to": "2026-08-07"
+   },
+   "expect_delta": {
+    "since": "L0",
+    "inflow": 595,
+    "outflow": 65.5
+   },
+   "hint": "流入 = 5单×99 + 回款100；流出 = 费用65.50"
+  }
+ ]
+}

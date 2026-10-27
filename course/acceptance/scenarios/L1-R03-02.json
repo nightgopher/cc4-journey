@@ -1,0 +1,55 @@
+{
+ "id": "L1-R03-02",
+ "layer": "L1",
+ "rules": [
+  "R03"
+ ],
+ "title": "C级月末入职，额度跨月补足",
+ "steps": [
+  {
+   "do": "hire",
+   "args": {
+    "name": "验收{run}-C",
+    "level": "c_level",
+    "date": "2026-02-27"
+   },
+   "as": "C"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$C",
+    "month": "2026-02"
+   },
+   "expect": {
+    "base": 30,
+    "total": 30
+   },
+   "hint": "2月只有最后 1 个工作日"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$C",
+    "month": "2026-03"
+   },
+   "expect": {
+    "base": 60,
+    "total": 60
+   },
+   "hint": "3月补足剩余 2 天，不是重新给 3 天"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$C",
+    "month": "2026-04"
+   },
+   "expect": {
+    "base": 0,
+    "total": 0
+   },
+   "hint": "3 天额度已用完"
+  }
+ ]
+}

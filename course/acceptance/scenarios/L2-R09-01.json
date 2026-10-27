@@ -1,0 +1,126 @@
+{
+ "id": "L2-R09-01",
+ "layer": "L2",
+ "rules": [
+  "R09",
+  "R01"
+ ],
+ "title": "工资发放、重复发放、撤销、再发放",
+ "steps": [
+  {
+   "do": "hire",
+   "args": {
+    "name": "验收{run}-P",
+    "level": "trainee",
+    "date": "2026-05-04"
+   },
+   "as": "P"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$P",
+    "date": "2026-05-04",
+    "count": 5
+   }
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$P",
+    "month": "2026-05"
+   },
+   "expect": {
+    "commission": 70,
+    "total": 70
+   }
+  },
+  {
+   "check": "get_ledger",
+   "args": {
+    "from": "2026-05-25",
+    "to": "2026-05-29"
+   },
+   "as": "L0"
+  },
+  {
+   "do": "pay_salary",
+   "args": {
+    "emp": "$P",
+    "month": "2026-05",
+    "date": "2026-05-29"
+   }
+  },
+  {
+   "check": "get_ledger",
+   "args": {
+    "from": "2026-05-25",
+    "to": "2026-05-29"
+   },
+   "expect_delta": {
+    "since": "L0",
+    "outflow": 70
+   },
+   "hint": "发放 70 元工资，流出 +70"
+  },
+  {
+   "do": "pay_salary",
+   "args": {
+    "emp": "$P",
+    "month": "2026-05",
+    "date": "2026-05-29"
+   }
+  },
+  {
+   "check": "get_ledger",
+   "args": {
+    "from": "2026-05-25",
+    "to": "2026-05-29"
+   },
+   "expect_delta": {
+    "since": "L0",
+    "outflow": 70
+   },
+   "hint": "重复发放不增加流出"
+  },
+  {
+   "do": "revoke_salary",
+   "args": {
+    "emp": "$P",
+    "month": "2026-05"
+   }
+  },
+  {
+   "check": "get_ledger",
+   "args": {
+    "from": "2026-05-25",
+    "to": "2026-05-29"
+   },
+   "expect_delta": {
+    "since": "L0",
+    "outflow": 0
+   },
+   "hint": "撤销后流出回退"
+  },
+  {
+   "do": "pay_salary",
+   "args": {
+    "emp": "$P",
+    "month": "2026-05",
+    "date": "2026-05-29"
+   }
+  },
+  {
+   "check": "get_ledger",
+   "args": {
+    "from": "2026-05-25",
+    "to": "2026-05-29"
+   },
+   "expect_delta": {
+    "since": "L0",
+    "outflow": 70
+   },
+   "hint": "再次发放，流出恢复"
+  }
+ ]
+}

@@ -1,0 +1,40 @@
+{
+ "id": "L1-R03-03",
+ "layer": "L1",
+ "rules": [
+  "R03",
+  "R01"
+ ],
+ "title": "C级固定工资叠加提成",
+ "steps": [
+  {
+   "do": "hire",
+   "args": {
+    "name": "验收{run}-C",
+    "level": "c_level",
+    "date": "2026-03-02"
+   },
+   "as": "C"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$C",
+    "date": "2026-03-02",
+    "count": 3
+   }
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$C",
+    "month": "2026-03"
+   },
+   "expect": {
+    "base": 90,
+    "commission": 30,
+    "total": 120
+   }
+  }
+ ]
+}

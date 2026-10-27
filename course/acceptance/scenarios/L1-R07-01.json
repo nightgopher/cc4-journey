@@ -1,0 +1,217 @@
+{
+ "id": "L1-R07-01",
+ "layer": "L1",
+ "rules": [
+  "R07",
+  "R05"
+ ],
+ "title": "批准请假后录单不覆盖缺勤",
+ "steps": [
+  {
+   "do": "hire",
+   "args": {
+    "name": "验收{run}-A",
+    "level": "a_level",
+    "date": "2026-06-01"
+   },
+   "as": "A"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-06-01",
+    "count": 1
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-06-02",
+    "count": 1
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-06-03",
+    "count": 1
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-06-04",
+    "count": 1
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-06-05",
+    "count": 1
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-06-08",
+    "count": 1
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-06-09",
+    "count": 1
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-06-10",
+    "count": 1
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-06-11",
+    "count": 1
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-06-12",
+    "count": 1
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-06-15",
+    "count": 1
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-06-16",
+    "count": 1
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-06-17",
+    "count": 1
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-06-18",
+    "count": 1
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-06-19",
+    "count": 1
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-06-22",
+    "count": 1
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-06-23",
+    "count": 1
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-06-24",
+    "count": 1
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-06-25",
+    "count": 1
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-06-26",
+    "count": 1
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-06-29",
+    "count": 1
+   }
+  },
+  {
+   "do": "approve_leave",
+   "args": {
+    "emp": "$A",
+    "date": "2026-06-30"
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-06-30",
+    "count": 1
+   }
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$A",
+    "month": "2026-06"
+   },
+   "expect": {
+    "base": 2100,
+    "bonus": 0,
+    "commission": 220,
+    "total": 2320
+   },
+   "hint": "请假日即使有订单也计缺勤：出勤21/22，底薪2100；订单照常计提成22×10"
+  }
+ ]
+}

@@ -1,0 +1,108 @@
+{
+ "id": "L2-R08-01",
+ "layer": "L2",
+ "rules": [
+  "R08",
+  "R10"
+ ],
+ "title": "应收 100：首款 30、超收 71 被拒、尾款 70",
+ "steps": [
+  {
+   "check": "get_ledger",
+   "args": {
+    "from": "2026-08-17",
+    "to": "2026-08-21"
+   },
+   "as": "L0"
+  },
+  {
+   "do": "create_receivable",
+   "args": {
+    "amount": 100,
+    "date": "2026-08-17"
+   },
+   "as": "R"
+  },
+  {
+   "check": "get_ledger",
+   "args": {
+    "from": "2026-08-17",
+    "to": "2026-08-21"
+   },
+   "expect_delta": {
+    "since": "L0",
+    "inflow": 0
+   },
+   "rule": "R10",
+   "hint": "新建应收不是流入"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$R",
+    "amount": 30,
+    "date": "2026-08-17"
+   }
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$R"
+   },
+   "expect": {
+    "remaining": 70
+   }
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$R",
+    "amount": 71,
+    "date": "2026-08-18"
+   },
+   "expect_error": "REJECTED",
+   "hint": "超过余额的回款必须被拒绝"
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$R"
+   },
+   "expect": {
+    "remaining": 70
+   },
+   "hint": "被拒绝的超收不能改变余额"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$R",
+    "amount": 70,
+    "date": "2026-08-18"
+   }
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$R"
+   },
+   "expect": {
+    "remaining": 0
+   }
+  },
+  {
+   "check": "get_ledger",
+   "args": {
+    "from": "2026-08-17",
+    "to": "2026-08-21"
+   },
+   "expect_delta": {
+    "since": "L0",
+    "inflow": 100,
+    "outflow": 0
+   },
+   "rule": "R10",
+   "hint": "两笔回款合计流入 100"
+  }
+ ]
+}

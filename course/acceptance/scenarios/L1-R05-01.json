@@ -1,0 +1,210 @@
+{
+ "id": "L1-R05-01",
+ "layer": "L1",
+ "rules": [
+  "R05",
+  "R01"
+ ],
+ "title": "A级满勤高产（130 单）",
+ "steps": [
+  {
+   "do": "hire",
+   "args": {
+    "name": "验收{run}-A",
+    "level": "a_level",
+    "date": "2026-01-01"
+   },
+   "as": "A"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-01-01",
+    "count": 6
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-01-02",
+    "count": 6
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-01-05",
+    "count": 6
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-01-06",
+    "count": 6
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-01-07",
+    "count": 6
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-01-08",
+    "count": 6
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-01-09",
+    "count": 6
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-01-12",
+    "count": 6
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-01-13",
+    "count": 6
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-01-14",
+    "count": 6
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-01-15",
+    "count": 6
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-01-16",
+    "count": 6
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-01-19",
+    "count": 6
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-01-20",
+    "count": 6
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-01-21",
+    "count": 6
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-01-22",
+    "count": 6
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-01-23",
+    "count": 6
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-01-26",
+    "count": 6
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-01-27",
+    "count": 6
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-01-28",
+    "count": 6
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-01-29",
+    "count": 5
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$A",
+    "date": "2026-01-30",
+    "count": 5
+   }
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$A",
+    "month": "2026-01"
+   },
+   "expect": {
+    "base": 2200,
+    "bonus": 1000,
+    "commission": 2140,
+    "total": 5340
+   },
+   "hint": "22天全出勤：底薪2200；130单绩效1000；22<25无全勤奖；提成20×100+2×70"
+  }
+ ]
+}

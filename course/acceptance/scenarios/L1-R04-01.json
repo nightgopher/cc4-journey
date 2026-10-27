@@ -1,0 +1,91 @@
+{
+ "id": "L1-R04-01",
+ "layer": "L1",
+ "rules": [
+  "R04"
+ ],
+ "title": "B级月末晋升，6 天额度跨月",
+ "steps": [
+  {
+   "do": "hire",
+   "args": {
+    "name": "验收{run}-B",
+    "level": "c_level",
+    "date": "2026-03-02"
+   },
+   "as": "B"
+  },
+  {
+   "do": "promote",
+   "args": {
+    "emp": "$B",
+    "level": "b_level",
+    "date": "2026-04-28"
+   }
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$B",
+    "month": "2026-04"
+   },
+   "expect": {
+    "base": 264,
+    "total": 264
+   },
+   "hint": "4/28、4/29、4/30 共 3 个工作日×88"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$B",
+    "month": "2026-05"
+   },
+   "expect": {
+    "base": {
+     "by_decision": {
+      "D1": {
+       "carry_over": 264,
+       "monthly_reset": 528
+      }
+     }
+    },
+    "total": {
+     "by_decision": {
+      "D1": {
+       "carry_over": 264,
+       "monthly_reset": 528
+      }
+     }
+    }
+   },
+   "hint": "取决于你的 D1 裁决"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$B",
+    "month": "2026-06"
+   },
+   "expect": {
+    "base": {
+     "by_decision": {
+      "D1": {
+       "carry_over": 0,
+       "monthly_reset": 528
+      }
+     }
+    },
+    "total": {
+     "by_decision": {
+      "D1": {
+       "carry_over": 0,
+       "monthly_reset": 528
+      }
+     }
+    }
+   },
+   "hint": "取决于你的 D1 裁决"
+  }
+ ]
+}

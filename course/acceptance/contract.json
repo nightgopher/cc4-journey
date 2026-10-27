@@ -1,0 +1,41 @@
+{
+  "contract": "0.1",
+  "endpoint": "POST /acceptance/act",
+  "request": {"action": "string", "args": "object"},
+  "responses": {
+    "success": {"ok": true, "id": "string|number (写动作创建了对象时返回)", "result": "object (观测动作返回)"},
+    "rejected": {"ok": false, "error": "REJECTED"},
+    "unsupported": {"ok": false, "error": "UNSUPPORTED"}
+  },
+  "money": "金额单位为元，最多两位小数；验收器按分比较",
+  "dates": "日期 YYYY-MM-DD，月份 YYYY-MM，均为业务日期，不是服务器当前时间",
+  "actions": {
+    "ping":              {"kind": "meta",    "args": [],                              "returns": {"contract": "string"}},
+    "set_workdays":      {"kind": "setup",   "args": ["month", "days"],               "returns": {}},
+    "hire":              {"kind": "event",   "args": ["name", "level", "date"],       "returns": "id"},
+    "promote":           {"kind": "event",   "args": ["emp", "level", "date"],        "returns": {}},
+    "record_orders":     {"kind": "event",   "args": ["emp", "date", "count"],        "returns": {}},
+    "submit_order":      {"kind": "event",   "args": ["emp", "date"],                 "returns": "id"},
+    "approve_order":     {"kind": "event",   "args": ["order"],                       "returns": {}},
+    "reject_order":      {"kind": "event",   "args": ["order"],                       "returns": {}},
+    "delete_order":      {"kind": "event",   "args": ["order"],                       "returns": {}},
+    "record_attendance": {"kind": "event",   "args": ["emp", "date", "status"],       "returns": {}},
+    "approve_leave":     {"kind": "event",   "args": ["emp", "date"],                 "returns": {}},
+    "create_receivable": {"kind": "event",   "args": ["amount", "date"],              "returns": "id"},
+    "receive_payment":   {"kind": "event",   "args": ["receivable", "amount", "date"], "returns": {}},
+    "pay_salary":        {"kind": "event",   "args": ["emp", "month", "date"],        "returns": {}},
+    "revoke_salary":     {"kind": "event",   "args": ["emp", "month"],                "returns": {}},
+    "record_expense":    {"kind": "event",   "args": ["amount", "date"],              "returns": {}},
+    "get_daily":         {"kind": "observe", "args": ["emp", "date"],                 "returns": {"orders": "int", "sales": "money", "commission": "money"}},
+    "get_salary":        {"kind": "observe", "args": ["emp", "month"],                "returns": {"base": "money", "bonus": "money", "commission": "money", "total": "money"}},
+    "get_receivable":    {"kind": "observe", "args": ["receivable"],                  "returns": {"remaining": "money"}},
+    "get_ledger":        {"kind": "observe", "args": ["from", "to"],                  "returns": {"inflow": "money", "outflow": "money"}}
+  },
+  "enums": {
+    "level": ["trainee", "c_level", "b_level", "a_level"],
+    "attendance_status": ["full", "half", "absent"]
+  },
+  "decisions": {
+    "D1": ["carry_over", "monthly_reset"]
+  }
+}
