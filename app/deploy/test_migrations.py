@@ -29,16 +29,16 @@ class MigrationTest(unittest.TestCase):
     def test_fresh_schema_and_idempotent_repeat(self):
         self.apply()
         self.apply()
-        self.assertEqual(sql(DATABASE, "SELECT count(*) FROM public.cc4_schema_migrations"), "3")
+        self.assertEqual(sql(DATABASE, "SELECT count(*) FROM public.cc4_schema_migrations"), "4")
         self.assertEqual(sql(DATABASE, "SELECT to_regclass('public.users') IS NOT NULL"), "t")
 
     def test_failed_increment_rolls_back_schema_and_ledger(self):
         self.apply()
-        (self.directory / "003_deliberate_failure.sql").write_text("CREATE TABLE rollback_fixture(id integer); SELECT 1/0;")
+        (self.directory / "004_deliberate_failure.sql").write_text("CREATE TABLE rollback_fixture(id integer); SELECT 1/0;")
         with self.assertRaises(RuntimeError):
             self.apply()
         self.assertEqual(sql(DATABASE, "SELECT to_regclass('public.rollback_fixture') IS NULL"), "t")
-        self.assertEqual(sql(DATABASE, "SELECT count(*) FROM public.cc4_schema_migrations"), "3")
+        self.assertEqual(sql(DATABASE, "SELECT count(*) FROM public.cc4_schema_migrations"), "4")
 
     def test_modified_applied_migration_is_rejected(self):
         self.apply()

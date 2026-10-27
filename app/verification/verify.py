@@ -18,7 +18,7 @@ APP = Path(__file__).resolve().parents[1]
 
 
 def isolated_environment():
-    prefixes = ("DB_", "PG", "GOOKI_", "MOCK_", "MCP_", "CC4_", "VITE_")
+    prefixes = ("DB_", "PG", "GOOKI_", "MOCK_", "MCP_", "PADDLEOCR_", "CC4_", "VITE_")
     env = {k: v for k, v in os.environ.items() if not k.startswith(prefixes)
            and k not in {"DATABASE_URL", "JWT_SECRET", "HOST", "PORT", "ENABLE_CRON", "BUSINESS_TIMEZONE"}}
     env.update(DB_HOST="127.0.0.1", DB_USER="root", CC4_KEEP_TEST_DB="0", ENABLE_CRON="false",
@@ -41,11 +41,14 @@ def validate_evidence(output):
     validate_negative(json.loads((simulation / "negative-report.json").read_text()))
     messages = [json.loads(line) for line in (output / "api-integration.jsonl").read_text().splitlines() if line.strip()]
     passed = {row.get("Test", "") for row in messages if row.get("Action") == "pass"}
-    require({"TestBusinessIntegration", "TestMCPBusinessIntegration"}.issubset(passed), "HTTP/MCP集成被跳过或未通过")
+    require({"TestBusinessIntegration", "TestMCPBusinessIntegration", "TestReimbursementIntegration"}.issubset(passed), "HTTP/MCP/报销集成被跳过或未通过")
+    reimbursement = json.loads((output / "reimbursement-report.json").read_text())
+    require(reimbursement.get("status") == "passed" and reimbursement.get("expenseCount") == 1 and reimbursement.get("expenseAmount") == 125.5, "报销付款证据缺失或金额错误")
     groups = [test for test in passed if test.startswith("TestBusinessIntegration/")]
     require(len(groups) >= 19, "实际运行的业务集成不足19组")
+    require(sum(test.startswith("TestReimbursementIntegration/") for test in passed) >= 10, "实际运行的报销集成不足10组")
     return {"business": result, "httpIntegrationGroups": len(groups), "mcpBusinessIntegration": "passed",
-            "idempotency": "passed", "unrelatedData": "preserved", "oneYuanFaultDetected": True}
+            "idempotency": "passed", "unrelatedData": "preserved", "oneYuanFaultDetected": True, "ocrReimbursement": reimbursement}
 
 
 def main():
@@ -76,7 +79,7 @@ def main():
         require(code == 0, label+"失败，查看 "+str(output / stage["log"]))
         print("[PASS] " + label, flush=True)
     try:
-        for program in ("go", "node", "npm", "docker", "bash", "curl", "git"):
+        for program in ("go", "node", "npm", "docker", "bash", "curl", "git", "pdfinfo"):
             require(shutil.which(program), "缺少依赖："+program+"；见 verification/README.md")
         revision = subprocess.run(["git", "rev-parse", "HEAD"], cwd=APP, capture_output=True, text=True)
         dirty = subprocess.run(["git", "status", "--porcelain"], cwd=APP, capture_output=True, text=True)
@@ -114,6 +117,7 @@ def main():
             run("migration-tests", [sys.executable, "-m", "unittest", "discover", "-s", "deploy", "-p", "test_migrations.py"])
             del env["CC4_MIGRATION_TEST_DATABASE"]
             env["CC4_TEST_JSON"] = str(output / "api-integration.jsonl")
+            env["CC4_REIMBURSEMENT_REPORT"] = str(output / "reimbursement-report.json")
             run("api-integration", ["bash", "scripts/test-integration.sh"])
             env["CC4_VERIFICATION_DIR"] = str(output / "simulation")
             run("business-simulation", ["bash", "scripts/test-simulation.sh"])

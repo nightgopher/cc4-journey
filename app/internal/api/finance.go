@@ -197,7 +197,7 @@ func (h *apiHandler) financeDelete(kind string) http.HandlerFunc {
 		if !financeAccess(w, r, id) {
 			return
 		}
-		tag, err := repo.Pool.Exec(r.Context(), `DELETE FROM finance_records WHERE id=$1 AND type=$2 AND COALESCE(reference_type,'') NOT IN ('receivable_payment','daily_performance','salary')`, id, kind)
+		tag, err := repo.Pool.Exec(r.Context(), `DELETE FROM finance_records WHERE id=$1 AND type=$2 AND COALESCE(reference_type,'') NOT IN ('receivable_payment','daily_performance','salary','reimbursement')`, id, kind)
 		if err != nil {
 			dbError(w, err)
 			return

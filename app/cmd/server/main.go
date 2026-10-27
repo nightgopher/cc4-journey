@@ -51,6 +51,7 @@ func main() {
 	cancel()
 	defer repo.Close()
 	service.StartScheduler(ctx)
+	service.StartReimbursementWorker(ctx)
 
 	handler := api.Router(jwtSecret())
 	addr := host + ":" + port

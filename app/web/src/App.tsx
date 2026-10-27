@@ -32,6 +32,7 @@ import {
 } from "./pages/core";
 import { WorkspaceContext } from "./pages/shared";
 import { SimulationPage } from "./pages/simulation";
+import { ReimbursementsPage } from "./pages/reimbursements";
 
 const NAV: (NavItem & { module: string })[] = [
   {
@@ -131,6 +132,13 @@ const NAV: (NavItem & { module: string })[] = [
     icon: "money",
     group: "财务与配置",
     module: "financial",
+  },
+  {
+    key: "reimbursements",
+    label: "智能报销",
+    icon: "money",
+    group: "财务与配置",
+    module: "reimbursements",
   },
   {
     key: "workdays",
@@ -327,6 +335,7 @@ export default function App() {
     permissions: <PermissionsPage />,
     profile: <ProfilePage />,
     simulation: <SimulationPage />,
+    reimbursements: <ReimbursementsPage />,
   };
   return (
     <WorkspaceContext.Provider

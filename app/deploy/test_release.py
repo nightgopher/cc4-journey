@@ -40,6 +40,18 @@ class ReleaseTest(unittest.TestCase):
             self.bundle(root, self.fixture())
             verify(root, REVISION)
 
+    def test_only_named_synthetic_receipts_are_allowed(self):
+        files = self.fixture()
+        files.update({"web/samples/invoice-demo.png": b"synthetic-image", "web/samples/invoice-demo.pdf": b"synthetic-pdf"})
+        with tempfile.TemporaryDirectory() as root:
+            self.bundle(root, files)
+            verify(root, REVISION)
+        files["web/samples/customer-upload.pdf"] = b"unexpected"
+        with tempfile.TemporaryDirectory() as root:
+            self.bundle(root, files)
+            with self.assertRaisesRegex(ValueError, "Unexpected"):
+                verify(root, REVISION)
+
     def test_reject_traversal_symlink_duplicate_and_wrong_revision(self):
         for case in ("traversal", "symlink", "duplicate", "revision"):
             files = self.fixture()

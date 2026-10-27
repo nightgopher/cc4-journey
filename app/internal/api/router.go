@@ -104,6 +104,7 @@ func Router(jwtSecret string) http.Handler {
 			h.registerStaff(r)
 			h.registerApprovals(r)
 			h.registerOperations(r)
+			h.registerReimbursements(r)
 			h.registerOrders(r)
 			h.registerWechat(r)
 			h.registerAttendance(r)

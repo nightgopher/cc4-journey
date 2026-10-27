@@ -90,9 +90,9 @@ class VerificationTest(unittest.TestCase):
     def test_inherited_business_connections_and_credentials_are_removed(self):
         with patch.dict("os.environ", {"DATABASE_URL": "production", "PGSERVICE": "production", "PGPASSFILE": "production",
                                       "CC4_KEEP_TEST_DB": "1", "CC4_VERIFY_TOKEN": "secret", "GOOKI_HOST": "remote",
-                                      "MCP_TOKEN": "secret", "PATH": "/bin"}, clear=True):
+                                      "MCP_TOKEN": "secret", "PADDLEOCR_API_KEY": "secret", "PATH": "/bin"}, clear=True):
             env = isolated_environment()
-        for key in ("DATABASE_URL", "PGSERVICE", "PGPASSFILE", "CC4_VERIFY_TOKEN", "GOOKI_HOST", "MCP_TOKEN"):
+        for key in ("DATABASE_URL", "PGSERVICE", "PGPASSFILE", "CC4_VERIFY_TOKEN", "GOOKI_HOST", "MCP_TOKEN", "PADDLEOCR_API_KEY"):
             self.assertNotIn(key, env)
         self.assertEqual(env["CC4_KEEP_TEST_DB"], "0")
         self.assertEqual(env["PATH"], "/bin")

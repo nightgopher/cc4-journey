@@ -15,13 +15,14 @@ cleanup() {
   fi
 }
 trap cleanup EXIT
-docker exec -i "$CC4_TEST_CONTAINER" psql -q -v ON_ERROR_STOP=1 -U "$CC4_TEST_USER" -d "$CC4_TEST_DB" < migrations/000_baseline_schema.sql >/dev/null
-docker exec -i "$CC4_TEST_CONTAINER" psql -q -v ON_ERROR_STOP=1 -U "$CC4_TEST_USER" -d "$CC4_TEST_DB" < migrations/001_go_completion.sql >/dev/null
+for migration in migrations/*.sql; do
+  docker exec -i "$CC4_TEST_CONTAINER" psql -q -v ON_ERROR_STOP=1 -U "$CC4_TEST_USER" -d "$CC4_TEST_DB" < "$migration" >/dev/null
+done
 
 export PGPASSWORD="${DB_PASSWORD:-$(docker exec "$CC4_TEST_CONTAINER" printenv POSTGRES_PASSWORD)}"
 export CC4_TEST_DATABASE_URL="postgres://${CC4_TEST_USER}@${DB_HOST:-localhost}:${DB_PORT:-5433}/${CC4_TEST_DB}?sslmode=disable"
 if [[ -n ${CC4_TEST_JSON:-} ]]; then
-  go test -race ./internal/api -run 'Test(BusinessIntegration|MCPBusinessIntegration)$' -count=1 -json | tee "$CC4_TEST_JSON"
+  go test -race ./internal/api -run 'Test(BusinessIntegration|MCPBusinessIntegration|ReimbursementIntegration)$' -count=1 -json | tee "$CC4_TEST_JSON"
 else
-  go test -race ./internal/api -run 'Test(BusinessIntegration|MCPBusinessIntegration)$' -count=1 -v
+  go test -race ./internal/api -run 'Test(BusinessIntegration|MCPBusinessIntegration|ReimbursementIntegration)$' -count=1 -v
 fi

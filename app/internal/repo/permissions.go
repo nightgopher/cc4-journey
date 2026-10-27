@@ -21,6 +21,7 @@ type Module struct {
 }
 
 var Modules = []Module{
+	{Key: "reimbursements", Label: "智能报销", Group: "finance", Type: "page"},
 	{Key: "simulation", Label: "业务演练", Group: "system", Type: "page"},
 	{Key: "dashboard", Label: "概览", Group: "core", Type: "page"}, {Key: "reports", Label: "数据报表", Group: "core", Type: "page"},
 	{Key: "leads", Label: "线索管理", Group: "business", Type: "page"}, {Key: "wechat-leads", Label: "微信线索", Group: "business", Type: "page"},
@@ -48,9 +49,9 @@ func DefaultModules(role string) []string {
 		"employee":          {"daily-performance", "leads", "wechat-leads", "attendance", "approval", "salary", "notifications", "profile"}, "finance": {"dashboard", "financial", "salary", "notifications", "profile"},
 	}
 	if v, ok := m[role]; ok {
-		return slices.Clone(v)
+		return append(slices.Clone(v), "reimbursements")
 	}
-	return slices.Clone(m["employee"])
+	return append(slices.Clone(m["employee"]), "reimbursements")
 }
 
 func PositionModules(ctx context.Context, db DBTX, name string) ([]string, bool, error) {

@@ -393,6 +393,7 @@ export function FormDialog({
   submitText = "保存",
   children,
   dirty = false,
+  className,
 }: {
   open: boolean;
   title: string;
@@ -401,6 +402,7 @@ export function FormDialog({
   submitText?: string;
   children: React.ReactNode;
   dirty?: boolean;
+  className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [busy, setBusy] = useState(false);
@@ -445,7 +447,7 @@ export function FormDialog({
     <dialog
       ref={ref}
       aria-labelledby={titleID}
-      className="dialog"
+      className={`dialog ${className ?? ""}`}
       onCancel={(e) => {
         e.preventDefault();
         close();

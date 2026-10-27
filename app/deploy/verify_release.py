@@ -13,7 +13,7 @@ MAX_FILES = 128
 
 
 def allowed(name):
-    return name in {"bin/cc4-server", "web/index.html", "web/version.json", "SHA256SUMS"} or bool(
+    return name in {"bin/cc4-server", "web/index.html", "web/version.json", "web/samples/invoice-demo.png", "web/samples/invoice-demo.pdf", "SHA256SUMS"} or bool(
         re.fullmatch(r"web/assets/[A-Za-z0-9_.-]+\.(?:js|css)", name)
         or re.fullmatch(r"migrations/[0-9]{3}_[a-z0-9_]+\.sql", name)
     )
