@@ -2,6 +2,15 @@
 
 更新时间：2026-10-27（America/Los_Angeles）。Go业务补全、20页前端、上游模拟、连续经营与OCR报销均已推送main。**主系统已通过GitHub Actions部署到 [8080入口](http://150.5.143.32:8080/cc4/)**，当前运行源码`a774812fd1af95edba178c44d2c594455a66356d`，见[成功发布](https://github.com/nightgopher/cc4-journey/actions/runs/40511109706)；后续以`/cc4/health`为准。结构见`journey/07-main-application-deployment.md`，经营演练见08/09，学员验收见10，OCR实现与最终证据见[journey/13-ocr-reimbursement.md](journey/13-ocr-reimbursement.md)。模拟服务运行版本仍为`46a7c666690be1dbfd8c90241237670f008e94c0`。
 
+## 2026-10-28 · 附件存储接入火山 TOS（CI/CD 收尾）
+
+并行会话的 TOS 重构已合入 main（eb8c7ea，5fe8d15 已部署云端）。本轮补齐运行侧配置与验证：
+
+- 服务器 `/etc/cc4.env` 追加 `ATTACHMENT_STORAGE=tos` + `TOS_*` 五项（FDE 项目 svc-fde 凭证，仅 `fde-project-hk` 桶；密钥只在服务器环境文件与本地 `~/.config/cc4-journey/tos.env`(0600)，不入库、不进 CI）。改动前 env 已备份，可一键回退。
+- 踩坑：storage 层校验要求 `TOS_ENDPOINT` 带 `https://`，裸域名导致服务崩溃循环（"TOS配置不完整或无效"），修正后恢复。细节记入 `journey/07` 新增小节。
+- 验证：真桶冒烟（Put/Get/迁移核对/清理）通过；云端 API 上传合成票据 → 回读字节一致 → 服务器本地 uploads 无新文件（确认走 TOS）；存量本地票据回退读取 200。云端留一条 QA 草稿（draft，OCR 对合成图正常报错），删除接口 405，演示可忽略。
+- CI 说明：部署读服务器侧环境文件，GitHub Actions 无需 TOS secrets；若日后要在 CI 跑真桶冒烟，再以 `CC4_TOS_SMOKE` 体系接入（现仓库已具备测试）。
+
 ## 2026-10-27 · 前端打磨两轮 + 本地服务修复
 
 ### 本地服务修复（3101）

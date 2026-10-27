@@ -55,3 +55,11 @@ GitHub Actions 完成 Go 和 Node.js 构建，服务器运行 Go 二进制与前
 首次 Actions 运行在备份环节失败：非 root 用户继承 `/root` 工作目录，`find` 无法恢复工作目录。修复为备份脚本明确进入 `/var/lib/cc4`、发布命令进入 `/`；随后实际执行备份、恢复到隔离库，并经 Actions 发布成功。
 
 80 默认端口在当前 Ego 浏览器中被自动升级到未配置的 HTTPS；独立 8080 入口保留显式 HTTP，并已实际打开登录工作台。没有修改用户浏览器的安全设置，也没有安装浏览器更新。
+
+## 附件存储接入火山引擎 TOS（2026-10-28）
+
+服务器 `/etc/cc4.env` 追加 `ATTACHMENT_STORAGE=tos` 与 `TOS_ENDPOINT/TOS_REGION/TOS_BUCKET/TOS_KEY_PREFIX/TOS_ACCESS_KEY/TOS_SECRET_KEY`（凭证为 FDE 项目 `svc-fde` IAM，仅 `fde-project-hk` 桶读写；改动前原文件已备份为 `/etc/cc4.env.bak.20261028000420`，回退即还原该文件并重启）。密钥不出现在代码与 CI 中：部署读服务器侧环境文件，GitHub Actions 无需 TOS secrets。
+
+配置要点：`TOS_ENDPOINT` 必须带 `https://` scheme（storage 层 url 校验拒绝裸域名——首配裸域名导致服务崩溃循环，已修正并记入此节）。对象落在 `fde/` 前缀；存量本地票据按需回退读取并渐进迁移，不删除本地数据。
+
+验证：仓库 `internal/storage` 真桶冒烟（Put/Get/迁移字节核对/清理）通过；云端 API 上传合成票据 → 回读字节一致 → 服务器本地 uploads 目录无新文件（确认走 TOS）；存量本地票据回退读取 200。遗留：云端留有一条管理员名下的 QA 草稿（draft，OCR 对合成图报"没有识别到有效文字"），删除接口不存在（405），演示时可忽略。
