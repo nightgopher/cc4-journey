@@ -56,7 +56,8 @@ export function LeadsPage() {
     statuses: leadStates,
     canCreate: true,
     canEdit: true,
-    canDelete: manage,
+    // 已转化线索需保留以便回溯（PRD 3.2），后端同样拒绝删除。
+    canDelete: (r) => manage && text(r, "status") !== "converted",
     fields: [
       { key: "customer_name", label: "客户姓名", required: true },
       phoneField,
@@ -100,6 +101,8 @@ export function LeadsPage() {
         ? [
             {
               label: "分配",
+              visible: (r: Row) =>
+                !["converted", "lost"].includes(text(r, "status")),
               fields: [{ ...idField, key: "assignedTo" }],
               run: (r: Row, v: Record<string, string | boolean>) =>
                 request("POST", "/leads/assign-batch", {
@@ -457,7 +460,8 @@ export function AttendancePage() {
             columns: [
               { key: "date", title: "日期" },
               { key: "employee_name", title: "员工" },
-              stateColumn(),
+              // partial 在应收里是“部分回款”，考勤里是半天出勤。
+              stateColumn("status", "状态", { partial: "半天" }),
               { key: "attendance_days", title: "出勤天数", align: "right" },
               { key: "notes", title: "备注" },
             ],

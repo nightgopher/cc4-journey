@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -200,6 +201,17 @@ func (h *apiHandler) updateLead(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"message": "线索更新成功"})
 }
 
+// leadStatus reads a list lead's status, writing 404 when it does not exist. Final
+// states protect attribution (F6) and the "converted lead stays traceable" rule (PRD 3.2).
+func leadStatus(w http.ResponseWriter, r *http.Request, id int) (string, bool) {
+	var status string
+	if err := repo.Pool.QueryRow(r.Context(), `SELECT COALESCE(status,'') FROM leads WHERE id=$1`, id).Scan(&status); err != nil {
+		writeErr(w, http.StatusNotFound, "线索不存在")
+		return "", false
+	}
+	return status, true
+}
+
 func (h *apiHandler) deleteLead(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -207,6 +219,14 @@ func (h *apiHandler) deleteLead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !leadAccess(w, r, id) {
+		return
+	}
+	status, ok := leadStatus(w, r, id)
+	if !ok {
+		return
+	}
+	if status == "converted" {
+		writeErr(w, http.StatusConflict, "已转化的线索需保留以便回溯，不能删除")
 		return
 	}
 	if err := repo.DeleteLead(r.Context(), id); err != nil {
@@ -230,6 +250,14 @@ func (h *apiHandler) assignLeadsBatch(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, id := range body.LeadIDs {
 		if !leadAccess(w, r, id) {
+			return
+		}
+		status, ok := leadStatus(w, r, id)
+		if !ok {
+			return
+		}
+		if slices.Contains([]string{"converted", "lost"}, status) {
+			writeErr(w, http.StatusConflict, "已转化或已流失的线索不能再分配")
 			return
 		}
 	}

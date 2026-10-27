@@ -101,6 +101,11 @@ func TestBusinessIntegration(t *testing.T) {
 			t.Fatal(l)
 		}
 		request(t, employeeToken, "PUT", fmt.Sprintf("/leads/%d", id), map[string]any{"status": "contacted", "nextFollowUp": ""}, 200)
+		// A converted lead keeps its owner (attribution) and stays traceable.
+		closed := int(request(t, adminToken, "POST", "/leads", map[string]any{"customerName": "已成交家长", "phone": "18800000013"}, 201)["id"].(float64))
+		request(t, adminToken, "POST", fmt.Sprintf("/leads/%d/mark-paid", closed), nil, 200)
+		request(t, adminToken, "POST", "/leads/assign-batch", map[string]any{"leadIds": []int{closed}, "assignedTo": employeeID}, 409)
+		request(t, adminToken, "DELETE", fmt.Sprintf("/leads/%d", closed), nil, 409)
 		request(t, adminToken, "POST", "/leads", map[string]any{"customerName": "无效日期", "phone": "18800000004", "nextFollowUp": "2026-02-30"}, 400)
 	})
 	t.Run("product update preserves identity", func(t *testing.T) {

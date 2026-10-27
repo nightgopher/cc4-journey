@@ -277,6 +277,9 @@ type SalaryRecord struct {
 	PaymentStatus    string  `json:"payment_status"`
 	CalcDetails      *string `json:"calculation_details"`
 	Notes            *string `json:"notes"`
+	// Read-only, from the list query: departed employees are not in the active lookup.
+	EmployeeName   string `json:"employee_name,omitempty"`
+	EmployeeStatus string `json:"employee_status,omitempty"`
 }
 
 // UpsertSalary 保存或更新某员工某月薪资（计算明细存 JSON 字符串，对齐旧表）。

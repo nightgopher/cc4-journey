@@ -507,7 +507,7 @@ func (h *apiHandler) listSalary(w http.ResponseWriter, r *http.Request) {
 		       COALESCE(sr.base_salary,0), COALESCE(sr.commission_amount,0), COALESCE(sr.bonus_amount,0),
 		       COALESCE(sr.overtime_pay,0), COALESCE(sr.deductions,0), COALESCE(sr.net_salary,0),
 		       TO_CHAR(sr.payment_date,'YYYY-MM-DD'), COALESCE(sr.payment_status,'pending'),
-		       sr.calculation_details, sr.notes
+		       sr.calculation_details, sr.notes, e.name, COALESCE(e.status,'')
 		FROM salary_records sr JOIN employees e ON e.id = sr.employee_id
 		`+whereSQL+` ORDER BY sr.period_year DESC, sr.period_month DESC, sr.employee_id
 		LIMIT $`+add(limit)+` OFFSET $`+add(offset), args...)
@@ -522,7 +522,7 @@ func (h *apiHandler) listSalary(w http.ResponseWriter, r *http.Request) {
 		var s repo.SalaryRecord
 		if err := rows.Scan(&s.ID, &s.EmployeeID, &s.PeriodYear, &s.PeriodMonth,
 			&s.BaseSalary, &s.CommissionAmount, &s.BonusAmount, &s.OvertimePay,
-			&s.Deductions, &s.NetSalary, &s.PaymentDate, &s.PaymentStatus, &s.CalcDetails, &s.Notes); err != nil {
+			&s.Deductions, &s.NetSalary, &s.PaymentDate, &s.PaymentStatus, &s.CalcDetails, &s.Notes, &s.EmployeeName, &s.EmployeeStatus); err != nil {
 			writeErr(w, http.StatusInternalServerError, "扫描失败")
 			return
 		}

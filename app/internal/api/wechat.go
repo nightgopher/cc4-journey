@@ -165,6 +165,7 @@ func (h *apiHandler) wechatUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	h.wechatDetail(w, r)
 }
+
 // wechatClosed rejects work on a lead that has reached a final state (PRD 3.2):
 // a converted, lost or duplicate lead can no longer be reassigned or followed up,
 // so the owner recorded at conversion stays the owner for attribution (F6).
