@@ -20,21 +20,12 @@ import {
 } from "../components/kit";
 import { collection, queryString, request, Row, User } from "../lib/api";
 import { STATUS_ZH } from "../lib/tokens";
+import { businessDate } from "../lib/business-date";
 
 export const text = (row: Row, key: string) =>
   row[key] == null ? "" : String(row[key]);
 export const number = (row: Row, key: string) => Number(row[key] ?? 0);
-export const today = () => {
-  const parts = new Intl.DateTimeFormat("en", {
-    timeZone: "Asia/Shanghai",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const value = (type: string) =>
-    parts.find((part) => part.type === type)!.value;
-  return `${value("year")}-${value("month")}-${value("day")}`;
-};
+export const today = () => businessDate();
 export const roles = (user: User, ...allowed: string[]) =>
   allowed.includes(user.role);
 export type Notice = (message: string, error?: boolean) => void;

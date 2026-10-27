@@ -13,6 +13,8 @@ import (
 	"github.com/nightgopher/cc4-journey/app/internal/service"
 )
 
+var simulationOwnerPattern = regexp.MustCompile(`^[a-f0-9]{32}$`)
+
 // A single writer owns the demo timeline. The runner renews this lease before
 // every business mutation; the server chooses its lifetime, never the caller.
 func (h *apiHandler) simulationLease(w http.ResponseWriter, r *http.Request) {
@@ -21,10 +23,10 @@ func (h *apiHandler) simulationLease(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Owner   string `json:"owner"`
-		Release bool   `json:"release"`
+		Owner  string `json:"owner"`
+		Action string `json:"action"`
 	}
-	if json.NewDecoder(r.Body).Decode(&body) != nil || !regexp.MustCompile(`^[a-f0-9]{32}$`).MatchString(body.Owner) {
+	if json.NewDecoder(r.Body).Decode(&body) != nil || !simulationOwnerPattern.MatchString(body.Owner) || !hasRole(body.Action, "acquire", "renew", "release") {
 		writeErr(w, 400, "无效的演练执行编号")
 		return
 	}
@@ -52,11 +54,15 @@ func (h *apiHandler) simulationLease(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 500, "演练锁状态无效")
 		return
 	}
-	if lease.Owner != "" && lease.Owner != body.Owner && (body.Release || time.Now().Before(lease.ExpiresAt)) {
+	if body.Action != "acquire" && (lease.Owner != body.Owner || !time.Now().Before(lease.ExpiresAt)) {
+		writeErr(w, 409, "演练执行锁已失效，请重新读取检查点后启动")
+		return
+	}
+	if body.Action == "acquire" && lease.Owner != "" && time.Now().Before(lease.ExpiresAt) {
 		writeErr(w, 409, "已有业务演练正在执行，请等待当前任务完成")
 		return
 	}
-	if body.Release {
+	if body.Action == "release" {
 		_, err = tx.Exec(r.Context(), `DELETE FROM system_settings WHERE key='business_simulation_lease_v1'`)
 	} else {
 		lease.Owner, lease.ExpiresAt = body.Owner, time.Now().UTC().Add(10*time.Minute)

@@ -573,5 +573,78 @@ func TestBusinessIntegration(t *testing.T) {
 			request(t, adminToken, "POST", "/wechat-leads/sync", body, 502)
 		}
 	})
-
+	t.Run("historical salary survives later promotions and reentry", func(t *testing.T) {
+		request(t, adminToken, "POST", "/workdays", map[string]any{"year": 2026, "month": 1, "workdays": []int{26, 27, 28}}, 200)
+		for index, initial := range []string{"c_level", "b_level"} {
+			row := request(t, adminToken, "POST", "/employees", map[string]any{"name": "测试历史工资", "phone": fmt.Sprintf("0008888888%d", index), "password": "testpass", "employeeCode": "TEST_HISTORY_" + initial, "level": initial, "joinDate": "2026-01-26"}, 201)
+			id := int(row["id"].(float64))
+			want := float64(90)
+			if initial == "b_level" {
+				want = 264
+			}
+			body := map[string]any{"employeeId": id, "periodYear": 2026, "periodMonth": 1}
+			beforeHire := request(t, adminToken, "POST", "/salary/calculate", map[string]any{"employeeId": id, "periodYear": 2025, "periodMonth": 12}, 200)
+			if beforeHire["netSalary"] != float64(0) {
+				t.Fatalf("salary before hire must be zero: %v", beforeHire)
+			}
+			check := func() {
+				result := request(t, adminToken, "POST", "/salary/calculate", body, 200)
+				if result["baseSalary"] != want || result["netSalary"] != want || result["level"] != initial {
+					t.Fatalf("historical %s salary changed: want %.0f, got %v", initial, want, result)
+				}
+			}
+			check()
+			request(t, adminToken, "POST", fmt.Sprintf("/employees/%d/level-change", id), map[string]any{"toLevel": "a_level", "changeDate": "2026-02-02", "reason": "测试次月晋升"}, 200)
+			check()
+			request(t, adminToken, "POST", fmt.Sprintf("/employees/%d/level-change", id), map[string]any{"toLevel": initial, "changeDate": "2026-03-02", "reason": "测试重新进入原等级"}, 200)
+			check()
+		}
+	})
+	t.Run("simulation lease fencing and report privacy", func(t *testing.T) {
+		t.Setenv("BUSINESS_SIMULATION_ENABLED", "true")
+		ownerA, ownerB := strings.Repeat("a", 32), strings.Repeat("b", 32)
+		request(t, employeeToken, "GET", "/simulation/report", nil, 403)
+		request(t, employeeToken, "POST", "/simulation/lease", map[string]any{"owner": ownerA, "action": "acquire"}, 403)
+		request(t, adminToken, "POST", "/simulation/lease", map[string]any{"owner": ownerA, "action": "acquire"}, 200)
+		request(t, adminToken, "POST", "/simulation/lease", map[string]any{"owner": ownerB, "action": "acquire"}, 409)
+		request(t, adminToken, "POST", "/simulation/lease", map[string]any{"owner": ownerA, "action": "renew"}, 200)
+		expired, _ := json.Marshal(map[string]any{"owner": ownerA, "expiresAt": "2000-01-01T00:00:00Z"})
+		if _, err := repo.Pool.Exec(ctx, `UPDATE system_settings SET value=$1 WHERE key='business_simulation_lease_v1'`, string(expired)); err != nil {
+			t.Fatal(err)
+		}
+		request(t, adminToken, "POST", "/simulation/lease", map[string]any{"owner": ownerA, "action": "renew"}, 409)
+		request(t, adminToken, "POST", "/simulation/lease", map[string]any{"owner": ownerB, "action": "acquire"}, 200)
+		request(t, adminToken, "POST", "/simulation/lease", map[string]any{"owner": ownerB, "action": "release"}, 200)
+		request(t, adminToken, "POST", "/simulation/lease", map[string]any{"owner": ownerA, "action": "renew"}, 409)
+		stale := httptest.NewRequest("POST", "/api/v1/settings", strings.NewReader(`{"key":"simulation_fence_probe","value":"must-not-write"}`))
+		stale.Header.Set("Content-Type", "application/json")
+		stale.Header.Set("Authorization", "Bearer "+adminToken)
+		stale.Header.Set("X-CC4-Simulation-Owner", ownerA)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, stale)
+		if response.Code != 409 {
+			t.Fatalf("stale writer returned %d: %s", response.Code, response.Body.String())
+		}
+		var count int
+		if err := repo.Pool.QueryRow(ctx, `SELECT count(*) FROM system_settings WHERE key='simulation_fence_probe'`).Scan(&count); err != nil || count != 0 {
+			t.Fatalf("stale writer changed state: count=%d err=%v", count, err)
+		}
+		request(t, adminToken, "POST", "/settings", map[string]any{"key": "business_simulation_report_v1", "value": `{"status":"passed"}`, "is_public": true}, 403)
+		request(t, adminToken, "POST", "/settings", map[string]any{"key": "business_simulation_report_v1", "value": `{"status":"passed"}`, "is_public": false}, 200)
+		request(t, adminToken, "GET", "/simulation/report", nil, 200)
+		workplace := request(t, adminToken, "POST", "/employees", map[string]any{"name": "测试演练设置权限", "phone": "00099999998", "password": "testpass", "employeeCode": "TEST_SIM_WORKPLACE", "role": "workplace_manager"}, 201)
+		_ = workplace
+		login := request(t, "", "POST", "/auth/login", map[string]any{"phone": "00099999998", "password": "testpass"}, 200)
+		workplaceToken := login["session"].(map[string]any)["access_token"].(string)
+		request(t, workplaceToken, "POST", "/settings", map[string]any{"key": "business_simulation_report_v1", "value": "overwrite"}, 403)
+		request(t, workplaceToken, "DELETE", "/settings/business_simulation_report_v1", nil, 403)
+		for _, endpoint := range []string{"/settings", "/settings/public"} {
+			settings := request(t, workplaceToken, "GET", endpoint, nil, 200)["settings"].([]any)
+			for _, item := range settings {
+				if strings.HasPrefix(item.(map[string]any)["key"].(string), "business_simulation_") {
+					t.Fatalf("private simulation setting exposed through %s", endpoint)
+				}
+			}
+		}
+	})
 }

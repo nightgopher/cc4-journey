@@ -68,7 +68,13 @@ export function SimulationPage() {
     [events],
   );
   const columns: Column<Check>[] = [
-    { key: "scope", title: "业务场景", render: (row) => <span className="wrap-text">{row.scope ?? "业务核对"}</span> },
+    {
+      key: "scope",
+      title: "业务场景",
+      render: (row) => (
+        <span className="wrap-text">{row.scope ?? "业务核对"}</span>
+      ),
+    },
     { key: "date", title: "业务日期" },
     {
       key: "title",

@@ -64,6 +64,8 @@ npm run build
 
 `CC4_KEEP_TEST_DB=1 bash scripts/test-integration.sh` 可保留合成数据供页面验收，库名写入 `/tmp/cc4-preview-db-name`。验收后删除对应测试库。测试不操作主业务数据库。
 
+连续经营演练见 [simulation/README.md](simulation/README.md)。`bash scripts/test-simulation.sh` 通过真实 HTTP API 回放最近7天，在独立库检查入离职、调级、审核、回款、工资支出与重复运行，并注入1元差异证明能够报错。工作台“业务演练”页展示逐步核对报告。
+
 ## MCP
 
 ```sh

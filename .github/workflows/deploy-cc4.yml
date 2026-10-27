@@ -87,6 +87,7 @@ jobs:
           set -euo pipefail
           npm ci
           npm run format:check
+          npm run test:dates
           npm run build -- --base=/cc4/
       - name: Build Linux release bundle
         env:

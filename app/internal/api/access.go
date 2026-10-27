@@ -1,9 +1,12 @@
 package api
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
+	"os"
 	"slices"
 	"strings"
 	"time"
@@ -63,6 +66,23 @@ func (h *apiHandler) authorize(next http.Handler) http.Handler {
 		if !allowed {
 			writeErr(w, http.StatusForbidden, "无权限执行此操作")
 			return
+		}
+		if owner := r.Header.Get("X-CC4-Simulation-Owner"); write && owner != "" && p != "simulation/lease" {
+			var value string
+			err := repo.Pool.QueryRow(r.Context(), `SELECT value FROM system_settings WHERE key='business_simulation_lease_v1'`).Scan(&value)
+			var lease struct {
+				Owner     string    `json:"owner"`
+				ExpiresAt time.Time `json:"expiresAt"`
+			}
+			if os.Getenv("BUSINESS_SIMULATION_ENABLED") != "true" || err != nil || !simulationOwnerPattern.MatchString(owner) || json.Unmarshal([]byte(value), &lease) != nil || lease.Owner != owner || lease.ExpiresAt.Before(time.Now().Add(2*time.Minute)) {
+				writeErr(w, 409, "演练执行锁已失效，拒绝过期任务写入")
+				return
+			}
+			// A mutation must finish well before this lease can expire and another
+			// runner can acquire it, including pauses before the HTTP request.
+			ctx, cancel := context.WithTimeout(r.Context(), time.Minute)
+			defer cancel()
+			r = r.WithContext(ctx)
 		}
 		if strings.HasPrefix(p, "finance/") && hasRole(role, "manager", "workplace_manager") {
 			if _, _, err := employeeScope(r); err != nil {

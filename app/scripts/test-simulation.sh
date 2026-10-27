@@ -23,7 +23,10 @@ done
 docker exec -i "$container" psql -q -v ON_ERROR_STOP=1 -U "$db_user" -d "$simulation_db" <<'SQL' >/dev/null
 INSERT INTO users(phone,password_hash,role,status) VALUES('00099999999','ci-simulation-password','admin','active');
 INSERT INTO employees(user_id,employee_code,name,level,status,join_date) SELECT id,'SIM_CI_ADMIN','模拟验收管理员','a_level','active','2026-01-01' FROM users WHERE phone='00099999999';
+INSERT INTO performance_records(employee_id,period_year,period_month,orders_count,sales_amount,commission_amount)
+SELECT id,EXTRACT(YEAR FROM CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Shanghai'),EXTRACT(MONTH FROM CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Shanghai'),42,1234,77 FROM employees WHERE employee_code='SIM_CI_ADMIN';
 SQL
+sentinel_before=$(docker exec "$container" psql -U "$db_user" -d "$simulation_db" -Atc "SELECT row_to_json(p)::text FROM performance_records p JOIN employees e ON e.id=p.employee_id WHERE e.employee_code='SIM_CI_ADMIN'")
 go build -o "$simulation_tmp/cc4-server" ./cmd/server
 (cd ../services/lead-source-mock && go build -o "$simulation_tmp/mock" ./cmd/server)
 server_port=$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1]);s.close()')
@@ -43,6 +46,8 @@ before=$(docker exec "$container" psql -U "$db_user" -d "$simulation_db" -Atc "S
 python3 simulation/run.py --base-url "http://127.0.0.1:$server_port/api/v1" --days 7
 after=$(docker exec "$container" psql -U "$db_user" -d "$simulation_db" -Atc "SELECT (SELECT count(*) FROM employees),(SELECT count(*) FROM daily_performance_records),(SELECT count(*) FROM payment_records),(SELECT count(*) FROM finance_records)")
 [[ $before == "$after" ]] || { echo 'Repeat simulation changed business counts.' >&2; exit 1; }
+sentinel_after=$(docker exec "$container" psql -U "$db_user" -d "$simulation_db" -Atc "SELECT row_to_json(p)::text FROM performance_records p JOIN employees e ON e.id=p.employee_id WHERE e.employee_code='SIM_CI_ADMIN'")
+[[ $sentinel_before == "$sentinel_after" ]] || { echo 'Simulation changed an unrelated monthly record.' >&2; exit 1; }
 echo 'Real HTTP business simulation and duplicate-run invariants passed.'
 docker exec "$container" psql -q -U "$db_user" -d "$simulation_db" -c "UPDATE finance_records SET amount=amount+1 WHERE id=(SELECT id FROM finance_records WHERE reference_type='daily_performance' ORDER BY id LIMIT 1)" >/dev/null
 if python3 simulation/run.py --base-url "http://127.0.0.1:$server_port/api/v1" --days 7; then

@@ -28,13 +28,21 @@ type SalaryDetail struct {
 //   - B 级 88 元：总量顺延（旧引擎每月重置 → D1）
 //   - A 级出勤：按去重日期（旧引擎按记录行数 → D3）
 func CalculateSalary(ctx context.Context, employeeID, year, month int) (*SalaryDetail, string, error) {
+	monthEnd := time.Date(year, time.Month(month+1), 0, 0, 0, 0, 0, time.UTC)
 	emp, err := repo.GetEmployeeByID(ctx, employeeID)
 	if err != nil {
 		return nil, "", fmt.Errorf("员工不存在: %w", err)
 	}
+	if emp.JoinDate != nil && emp.JoinDate.Format("2006-01-02") > monthEnd.Format("2006-01-02") {
+		return &SalaryDetail{}, emp.Level, nil
+	}
+	level, err := repo.EmployeeLevelAsOf(ctx, employeeID, monthEnd.Format("2006-01-02"))
+	if err != nil {
+		return nil, "", fmt.Errorf("无法确定工资月份的有效职级: %w", err)
+	}
 
 	var detail SalaryDetail
-	switch emp.Level {
+	switch level {
 	case domain.LevelTrainee:
 		detail, err = traineeSalary(ctx, employeeID, year, month)
 	case domain.LevelC:
@@ -44,12 +52,12 @@ func CalculateSalary(ctx context.Context, employeeID, year, month int) (*SalaryD
 	case domain.LevelA:
 		detail, err = aSalary(ctx, employeeID, year, month)
 	default:
-		return nil, emp.Level, fmt.Errorf("未知员工等级: %s", emp.Level)
+		return nil, level, fmt.Errorf("未知员工等级: %s", level)
 	}
 	if err != nil {
-		return nil, emp.Level, err
+		return nil, level, err
 	}
-	return &detail, emp.Level, nil
+	return &detail, level, nil
 }
 
 // monthlyCommission 月度提成：按日订单序列累加（模型一），对齐旧 calculateMonthlyCommission。
@@ -83,7 +91,8 @@ func traineeSalary(ctx context.Context, employeeID, year, month int) (SalaryDeta
 // cSalary：C 级 = 前 3 个工作日 × 30（跨月补足）+ 提成。
 func cSalary(ctx context.Context, employeeID, year, month int) (SalaryDetail, error) {
 	// C 级起始日：最近一条 to_level='c_level'；无历史则回退 join_date（对齐旧引擎）。
-	hist, err := repo.LatestLevelChange(ctx, employeeID, domain.LevelC)
+	monthEnd := time.Date(year, time.Month(month+1), 0, 0, 0, 0, 0, time.UTC)
+	hist, err := repo.LatestLevelChangeOnOrBefore(ctx, employeeID, domain.LevelC, monthEnd.Format("2006-01-02"))
 	if err != nil {
 		emp, e := repo.GetEmployeeByID(ctx, employeeID)
 		if e != nil || emp.JoinDate == nil {
@@ -92,7 +101,6 @@ func cSalary(ctx context.Context, employeeID, year, month int) (SalaryDetail, er
 		hist = &repo.LevelHistory{ChangeDate: *emp.JoinDate}
 	}
 
-	monthEnd := time.Date(year, time.Month(month+1), 0, 0, 0, 0, 0, time.UTC)
 	workdays, err := repo.WorkdaysUpTo(ctx, hist.ChangeDate, monthEnd)
 	if err != nil {
 		return SalaryDetail{}, err
@@ -124,12 +132,12 @@ func cSalary(ctx context.Context, employeeID, year, month int) (SalaryDetail, er
 
 // bSalary：B 级 = 晋升后 88 元/天（6 天总量、跨月顺延，D1 文档口径）+ 提成。
 func bSalary(ctx context.Context, employeeID, year, month int) (SalaryDetail, error) {
-	hist, err := repo.LatestLevelChange(ctx, employeeID, domain.LevelB)
+	monthEnd := time.Date(year, time.Month(month+1), 0, 0, 0, 0, 0, time.UTC)
+	hist, err := repo.LatestLevelChangeOnOrBefore(ctx, employeeID, domain.LevelB, monthEnd.Format("2006-01-02"))
 	if err != nil {
 		return SalaryDetail{}, fmt.Errorf("无B级晋升记录: %w", err)
 	}
 
-	monthEnd := time.Date(year, time.Month(month+1), 0, 0, 0, 0, 0, time.UTC)
 	workdays, err := repo.WorkdaysUpTo(ctx, hist.ChangeDate, monthEnd)
 	if err != nil {
 		return SalaryDetail{}, err

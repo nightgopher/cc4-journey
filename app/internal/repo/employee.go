@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -83,8 +84,9 @@ func ListEmployees(ctx context.Context, p EmployeeListParams) ([]Employee, int, 
 
 	sql := `SELECT e.id, e.user_id, e.employee_code, e.name, e.phone, e.email, e.department, e.position,
 			e.level, e.join_date, e.avatar_url, e.salary_base, e.status, e.team_id, e.created_at, e.updated_at,
-			u.role, TO_CHAR(u.last_login, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
-			NULL::int, NULL::int
+			u.role, TO_CHAR(u.last_login AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+			(SELECT COUNT(DISTINCT a.date)::int FROM attendance_records a WHERE a.employee_id=e.id AND a.date BETWEEN CURRENT_DATE-6 AND CURRENT_DATE AND (a.status='work' OR COALESCE(a.attendance_days,0)>0)),
+			(SELECT COALESCE(SUM(d.orders_count),0)::int FROM daily_performance_records d WHERE d.employee_id=e.id AND d.work_date>=date_trunc('month',CURRENT_DATE)::date AND d.work_date<(date_trunc('month',CURRENT_DATE)+interval '1 month')::date)
 		FROM employees e LEFT JOIN users u ON u.id = e.user_id ` + whereSQL +
 		` ORDER BY e.created_at DESC LIMIT $` + add(p.Limit) + ` OFFSET $` + add(p.Offset)
 	rows, err := Pool.Query(ctx, sql, args...)
@@ -152,12 +154,18 @@ type LevelHistory struct {
 
 // LatestLevelChange 取员工最近一次变更到 toLevel 的记录（B 级 88 元与 C 级额度计算依赖）。
 func LatestLevelChange(ctx context.Context, employeeID int, toLevel string) (*LevelHistory, error) {
+	return LatestLevelChangeOnOrBefore(ctx, employeeID, toLevel, "9999-12-31")
+}
+
+// LatestLevelChangeOnOrBefore excludes later reentries when calculating an old
+// payroll period; a future promotion cannot reset an already earned allowance.
+func LatestLevelChangeOnOrBefore(ctx context.Context, employeeID int, toLevel, through string) (*LevelHistory, error) {
 	row := Pool.QueryRow(ctx, `
 		SELECT id, employee_id, from_level, to_level, change_date, reason, approved_by,
 		       condition_met_date, created_at
 		FROM employee_level_history
-		WHERE employee_id = $1 AND to_level = $2
-		ORDER BY change_date DESC LIMIT 1`, employeeID, toLevel)
+		WHERE employee_id = $1 AND to_level = $2 AND change_date <= $3::text::date
+		ORDER BY change_date DESC,id DESC LIMIT 1`, employeeID, toLevel, through)
 
 	var h LevelHistory
 	err := row.Scan(&h.ID, &h.EmployeeID, &h.FromLevel, &h.ToLevel, &h.ChangeDate,
@@ -166,6 +174,24 @@ func LatestLevelChange(ctx context.Context, employeeID int, toLevel string) (*Le
 		return nil, err
 	}
 	return &h, nil
+}
+
+// EmployeeLevelAsOf uses the period's history rather than today's employee row.
+// Legacy accounts with no history retain their existing level. If history does
+// exist but cannot identify an earlier level, fail instead of silently paying 0.
+func EmployeeLevelAsOf(ctx context.Context, employeeID int, through string) (string, error) {
+	var level *string
+	err := Pool.QueryRow(ctx, `SELECT CASE WHEN EXISTS(SELECT 1 FROM employee_level_history h WHERE h.employee_id=e.id)
+		THEN COALESCE((SELECT h.to_level FROM employee_level_history h WHERE h.employee_id=e.id AND h.change_date <= $2::text::date ORDER BY h.change_date DESC,h.id DESC LIMIT 1),
+		(SELECT h.from_level FROM employee_level_history h WHERE h.employee_id=e.id ORDER BY h.change_date,h.id LIMIT 1))
+		ELSE e.level END FROM employees e WHERE e.id=$1`, employeeID, through).Scan(&level)
+	if err != nil {
+		return "", err
+	}
+	if level == nil || *level == "" {
+		return "", fmt.Errorf("无法确定所算月份的历史等级")
+	}
+	return *level, nil
 }
 
 // ---- workday config ----

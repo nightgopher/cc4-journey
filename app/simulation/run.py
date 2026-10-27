@@ -43,6 +43,7 @@ class API:
     def __init__(self, base, token=""):
         self.base, self.token = base.rstrip("/"), token
         self.before_write = None
+        self.simulation_owner = ""
 
     def request(self, method, path, body=None, expected=200, raw=None, content_type=None):
         if method != "GET" and path != "/simulation/lease" and self.before_write:
@@ -50,6 +51,8 @@ class API:
         headers = {"Content-Type": content_type or "application/json"}
         if self.token:
             headers["Authorization"] = "Bearer " + self.token
+        if self.simulation_owner:
+            headers["X-CC4-Simulation-Owner"] = self.simulation_owner
         data = raw if raw is not None else (json.dumps(body).encode() if body is not None else None)
         request = urllib.request.Request(self.base + path, data=data, headers=headers, method=method)
         try:
@@ -88,6 +91,7 @@ class Simulation:
         self.lease_owner = lease_owner
         if lease_owner:
             self.api.before_write = self.touch_lease
+            self.api.simulation_owner = lease_owner
         settings = {row["key"]: row["value"] for row in api.get("/settings")["settings"]}
         self.state = json.loads(settings[STATE_KEY]) if STATE_KEY in settings else {
             "version": 1, "origin": (today - dt.timedelta(days=days - 1)).isoformat(),
@@ -101,7 +105,7 @@ class Simulation:
         self.api.post("/settings", {"key": key, "value": json.dumps(value, ensure_ascii=False), "category": "simulation", "is_public": False})
 
     def touch_lease(self):
-        self.api.post("/simulation/lease", {"owner": self.lease_owner})
+        self.api.post("/simulation/lease", {"owner": self.lease_owner, "action": "renew"})
 
     def save(self):
         self.setting(STATE_KEY, self.state)
@@ -127,12 +131,16 @@ class Simulation:
         self.check(title + "（元）", f"{Decimal(expected_cents)/100:.2f}", f"{Decimal(str(actual or 0)):.2f}", day)
 
     def event(self, day, title, run):
+        event_key = hashlib.sha256((day + "\n" + title).encode()).hexdigest()
+        if self.state.setdefault("completedEvents", {}).get(event_key):
+            return None
         if self.state["pending"]:
             raise ScenarioFailure("Previous write needs reconciliation: " + self.state["pending"]["title"])
         self.state["pending"] = {"date": day, "title": title}
         self.save()
         result = run()
         self.state["events"].append({"date": day, "title": title, "status": "passed"})
+        self.state["completedEvents"][event_key] = True
         self.state["pending"] = None
         self.save()
         return result
@@ -151,6 +159,7 @@ class Simulation:
             self.tokens[key] = API(self.api.base, result["session"]["access_token"])
             if self.lease_owner:
                 self.tokens[key].before_write = self.touch_lease
+                self.tokens[key].simulation_owner = self.lease_owner
         return self.tokens[key]
 
     def hire(self, key, name, level, day, role="employee"):
@@ -168,8 +177,6 @@ class Simulation:
         self.event(day, "入职：模拟·" + name, create)
 
     def setup(self):
-        if self.state.get("product"):
-            return
         origin = self.state["origin"]
         session = self.api.get("/auth/session")
         self.state["adminEmployee"] = session["user"]["employee_id"]
@@ -178,13 +185,16 @@ class Simulation:
                 "name": "模拟·99元体验课", "code": "SIM_" + origin.replace("-", ""), "price": 99,
                 "commissionRules": {"tiers": [{"from": 1, "to": 3, "amount": 10}, {"from": 4, "to": 5, "amount": 20}, {"from": 6, "to": None, "amount": 30}]},
             }, 201)["id"]
-        self.event(origin, "配置模拟产品：99元体验课", product)
+        if not self.state.get("product"):
+            self.event(origin, "配置模拟产品：99元体验课", product)
         def team():
             self.state["team"] = self.api.post("/teams", {"name": "模拟·经营演练团队", "code": "SIM_" + origin.replace("-", ""), "managerId": self.state["adminEmployee"]}, 201)["id"]
-        self.event(origin, "建立模拟团队", team)
+        if not self.state.get("team"):
+            self.event(origin, "建立模拟团队", team)
         for key, name, level, role in [("senior", "资深销售", "a_level", "employee"), ("growth", "成长销售", "c_level", "employee"),
                                         ("settlement", "离职结算员工", "trainee", "employee"), ("manager", "演练主管", "trainee", "manager"), ("hr", "演练人事", "trainee", "hr")]:
-            self.hire(key, name, level, origin, role)
+            if key not in self.state["actors"]:
+                self.hire(key, name, level, origin, role)
 
     def configure_workdays(self, day):
         date = dt.date.fromisoformat(day)
@@ -193,12 +203,14 @@ class Simulation:
             return
         try:
             result = self.api.get(f"/workdays/{date.year}/{date.month}")
+            missing = False
         except APIError as error:
             if error.status != 404:
                 raise
             result = {}
+            missing = True
         days = result.get("workdays", [])
-        if not days:
+        if missing:
             days = [n for n in range(1, calendar.monthrange(date.year, date.month)[1] + 1) if dt.date(date.year, date.month, n).weekday() < 5]
             self.event(day, "配置模拟经营工作日", lambda: self.api.post("/workdays", {"year": date.year, "month": date.month, "workdays": days}))
         self.state.setdefault("workdays", {})[period] = days
@@ -237,8 +249,8 @@ class Simulation:
 
     def leave(self, key, day):
         actor = self.state["actors"][key]
-        old_token = self.actor(key)
         def run():
+            old_token = self.actor(key)
             before = self.api.get(f"/employees/{actor['id']}/performance-stats")["total_orders"]
             self.api.request("PUT", "/employees/batch-status", {"employeeIds": [actor["id"]], "status": "inactive"})
             self.api.post("/auth/login", {"phone": actor["phone"], "password": self.password(key)}, 401)
@@ -269,6 +281,11 @@ class Simulation:
     def self_orders(self, day):
         actor_id = self.state["actors"]["growth"]["id"]
         expected = self.state["daily"][day]["growth"]
+        def income_check(stage, orders):
+            rows = self.api.rows("/finance/income", "income")
+            own = [row for row in rows if row.get("recorded_by") == actor_id and str(row.get("transaction_date", ""))[:10] == day]
+            self.check(stage + "：收入流水数", 1, len(own), day)
+            self.money_check(stage + "：已确认收入", orders * 9900, sum(Decimal(str(row["amount"])) for row in own), day)
         def current():
             rows = self.api.rows(f"/daily-performance?employee_id={actor_id}&start_date={day}&end_date={day}", "performances")
             return next(row for row in rows if row["work_date"] == day and row.get("product_id") == self.state["product"])
@@ -286,9 +303,19 @@ class Simulation:
         def run():
             approved, rejected, pending = [submit(index) for index in range(3)]
             self.check("待审订单不计入业绩", expected["orders"], current()["orders_count"], day)
+            income_check("三笔待审", expected["orders"])
             self.api.post(f"/daily-performance/order-details/{approved}/approve", {"approved": True})
+            income_check("一笔审核通过", expected["orders"] + 1)
             self.api.post(f"/daily-performance/order-details/{approved}/approve", {"approved": True}, 400)
+            income_check("重复审核被拒绝", expected["orders"] + 1)
             self.api.post(f"/daily-performance/order-details/{rejected}/approve", {"approved": False, "rejectionReason": "模拟·截图资料不完整"})
+            income_check("一笔驳回", expected["orders"] + 1)
+            self.api.request("DELETE", f"/daily-performance/order-details/{approved}")
+            self.check("撤销订单后业绩回退", expected["orders"], current()["orders_count"], day)
+            income_check("撤销已审核订单", expected["orders"])
+            replacement = submit(3)
+            self.api.post(f"/daily-performance/order-details/{replacement}/approve", {"approved": True})
+            income_check("新订单重新审核", expected["orders"] + 1)
             row = current()
             self.check("一笔通过、一笔驳回后只增加1单", expected["orders"] + 1, row["orders_count"], day)
             commission = {1: 20, 5: 100}[expected["orders"]]
@@ -309,6 +336,20 @@ class Simulation:
             self.check("半天出勤折算", 0.5, row["attendance_days"], day)
             self.state["daily"][day]["senior"]["attendance"] = 0.5
         self.event(day, "考勤：模拟半天出勤", run)
+
+    def approved_leave(self, key, day):
+        actor_id = self.state["actors"][key]["id"]
+        def run():
+            request_id = self.actor(key).post("/approvals", {"requestType": "leave", "title": "模拟·请假优先级核对", "currentApprover": self.state["adminEmployee"],
+                "metadata": {"start_date": day, "end_date": day, "leave_type": "personal"}}, 201)["id"]
+            self.api.post(f"/approvals/{request_id}/action", {"action": "approved", "comments": "模拟·批准请假，考勤优先于业绩兜底"})
+            self.actor(key).post("/daily-performance", {"employeeId": actor_id, "workDate": day, "orders": 0}, 201)
+            rows = self.api.rows(f"/attendance?employee_id={actor_id}&start_date={day}&end_date={day}", "attendance")
+            row = next(row for row in rows if row["date"] == day)
+            self.check("请假批准后保持缺勤", "absent", row["status"], day)
+            self.check("后续业绩录入不得覆盖请假", 0, row["attendance_days"], day)
+            self.state["daily"][day][key]["attendance"] = 0
+        self.event(day, "请假：批准后考勤优先于业绩自动同步", run)
 
     def wages(self, day):
         date = dt.date.fromisoformat(day)
@@ -388,6 +429,8 @@ class Simulation:
                 own = [row for row in rows if row["work_date"] == date and row.get("product_id") == self.state["product"]]
                 self.check("录单汇总记录唯一", 1, len(own), date)
                 self.check("回读订单数", expected["orders"], own[0]["orders_count"], date)
+                self.money_check("回读业绩销售额", expected["orders"] * 9900, own[0]["sales_amount"], date)
+                self.money_check("回读业绩提成", expected["commission"] * 100, own[0]["commission_amount"], date)
                 ref = f"daily-{actor_id}-{date}-{self.state['product']}"
                 ledger = [row for row in income if row.get("reference_type") == "daily_performance" and row.get("reference_id") == ref]
                 self.check("销售收入流水唯一", 1, len(ledger), date)
@@ -400,8 +443,11 @@ class Simulation:
         self.upstream(day)
         key = "hire_" + day.replace("-", "")
         self.hire(key, date.strftime("%m月%d日入职销售"), "c_level", day)
-        self.state["hires"].append({"key": key, "date": day})
+        if not any(hire["key"] == key for hire in self.state["hires"]):
+            self.state["hires"].append({"key": key, "date": day})
         self.record(key, day, 1, 10)
+        if index % 4 == 1:
+            self.approved_leave(key, day)
         self.actor(key).request("GET", f"/employees/{self.state['actors']['senior']['id']}", expected=403)
         self.check("新员工不能读取他人员工档案", True, True, day)
         senior_orders, senior_commission = [(3, 30), (5, 70), (8, 160)][index % 3]
@@ -427,7 +473,12 @@ class Simulation:
         self.event(day, "客户：建立体验课客户与订单档案", customer)
         self.receivable(day)
         self.event(day, "财务：65.50元模拟运营支出", lambda: self.api.post("/finance/expense", {"category": "模拟运营工具", "amount": 65.5, "transactionDate": day, "description": "模拟经营工具费 " + day}, 201))
-        self.event(day, "汇总当月业绩", lambda: self.api.post("/performance/aggregate-to-monthly", {"year": date.year, "month": date.month}))
+        self.event(day, "汇总模拟团队当月业绩", lambda: self.actor("manager").post("/performance/aggregate-to-monthly", {"year": date.year, "month": date.month}))
+        def sync_income():
+            for _ in range(2):
+                self.actor("manager").post("/finance/sync-income", {"year": date.year, "month": date.month})
+            self.reconcile(day)
+        self.event(day, "财务：重复同步模拟团队收入，核对没有重复入账", sync_income)
         self.wages(day)
         self.reconcile(day)
         self.state["lastDay"] = day
@@ -477,11 +528,11 @@ def main():
         raise SystemExit("An administrator is required for business simulation")
     api.token = result["session"]["access_token"]
     owner = uuid.uuid4().hex
-    api.post("/simulation/lease", {"owner": owner})
+    api.post("/simulation/lease", {"owner": owner, "action": "acquire"})
     try:
         report = Simulation(api, os.environ["CC4_SIMULATION_SEED"], dt.date.fromisoformat(args.date), args.days, owner).run()
     finally:
-        api.post("/simulation/lease", {"owner": owner, "release": True})
+        api.post("/simulation/lease", {"owner": owner, "action": "release"})
     print(json.dumps({"status": report["status"], "through": report["through"], "summary": report["summary"]}, ensure_ascii=False))
 
 
