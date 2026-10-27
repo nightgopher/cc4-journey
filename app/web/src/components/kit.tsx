@@ -52,6 +52,7 @@ export function Icon({ name, size = 18 }: { name: string; size?: number }) {
     menu: <path d="M4 6h16M4 12h16M4 18h16" />,
     close: <path d="m6 6 12 12M6 18 18 6" />,
     logout: <path d="M10 4H4v16h6M10 12h11m-4-4 4 4-4 4" />,
+    caret: <path d="m6 9 6 6 6-6" />,
   };
   return (
     <svg
@@ -71,11 +72,91 @@ export function Icon({ name, size = 18 }: { name: string; size?: number }) {
 }
 export const Btn: React.FC<
   React.ButtonHTMLAttributes<HTMLButtonElement> & {
-    kind?: "primary" | "ghost" | "danger";
+    kind?: "primary" | "ghost" | "danger" | "ghost-danger";
   }
 > = ({ kind = "primary", className = "", type = "button", ...rest }) => (
   <button type={type} className={`btn btn--${kind} ${className}`} {...rest} />
 );
+
+export interface RowMenuItem {
+  label: string;
+  danger?: boolean;
+  onSelect: () => void;
+}
+
+/** 行内「更多」菜单：fixed 定位，避免被表格滚动容器裁剪。 */
+export function RowMenu({ items }: { items: RowMenuItem[] }) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    const onDoc = (e: MouseEvent) => {
+      if (!root.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setOpen(false);
+        trigger.current?.focus();
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [open]);
+  const toggle = () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    const r = trigger.current?.getBoundingClientRect();
+    if (r) setPos({ top: r.bottom + 4, left: Math.max(8, r.right - 148) });
+    setOpen(true);
+  };
+  return (
+    <div className="row-menu" ref={root}>
+      <button
+        ref={trigger}
+        type="button"
+        className="btn btn--ghost"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={toggle}
+      >
+        更多
+        <Icon name="caret" size={14} />
+      </button>
+      {open && pos && (
+        <div className="row-menu-pop" role="menu" style={pos}>
+          {items.map((it) => (
+            <button
+              key={it.label}
+              type="button"
+              role="menuitem"
+              className={it.danger ? "row-menu-item danger" : "row-menu-item"}
+              onClick={() => {
+                setOpen(false);
+                it.onSelect();
+              }}
+            >
+              {it.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 export function Field({
   label,
   hint,
@@ -166,9 +247,11 @@ export const MoneyCell = ({
 }: {
   v: number | string | null;
   tone?: "in" | "out";
-}) => (
-  <span className={`money ${tone ? `money--${tone}` : ""}`}>{money(v)}</span>
-);
+}) => {
+  const n = typeof v === "number" ? v : Number(v);
+  const active = tone && n !== 0 && !Number.isNaN(n) ? tone : undefined;
+  return <span className={`money ${active ? `money--${active}` : ""}`}>{money(v)}</span>;
+};
 export const StatCard = ({
   label,
   value,
@@ -245,6 +328,24 @@ export function DataTablePage<T>({
   const [err, setErr] = useState("");
   const [retry, setRetry] = useState(0);
   const limit = 20;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrollable, setScrollable] = useState(false);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const check = () =>
+      setScrollable(
+        el.scrollWidth > el.clientWidth + 1 &&
+          el.scrollLeft < el.scrollWidth - el.clientWidth - 1,
+      );
+    check();
+    el.addEventListener("scroll", check, { passive: true });
+    window.addEventListener("resize", check);
+    return () => {
+      el.removeEventListener("scroll", check);
+      window.removeEventListener("resize", check);
+    };
+  }, [rows, loading]);
   useEffect(() => {
     let live = true;
     setLoading(true);
@@ -296,7 +397,7 @@ export function DataTablePage<T>({
       {filters && <div className="filters">{filters}</div>}
       {err && (
         <Alert retry={() => setRetry((v) => v + 1)}>
-          {err}，请重试或检查筛选条件。
+          {err}
         </Alert>
       )}
       {loading ? (
@@ -309,53 +410,68 @@ export function DataTablePage<T>({
       ) : (
         !err && (
           <>
-            <div
-              className="table-scroll"
-              tabIndex={0}
-              role="region"
-              aria-label={`${title}数据表`}
-            >
-              {rows.length === 0 ? (
-                <div className="empty">
-                  <Icon name="list" size={28} />
-                  <p>{emptyText}</p>
-                </div>
-              ) : (
-                <table>
-                  <thead>
-                    <tr>
-                      {columns.map((c) => (
-                        <th
-                          key={c.key}
-                          scope="col"
-                          className={c.align === "right" ? "number" : ""}
-                        >
-                          {c.title}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((row) => (
-                      <tr key={rowKey(row)}>
+            <div className="table-wrap" data-scrollable={scrollable || undefined}>
+              <div
+                ref={scrollRef}
+                className="table-scroll"
+                tabIndex={0}
+                role="region"
+                aria-label={`${title}数据表`}
+              >
+                {rows.length === 0 ? (
+                  <div className="empty">
+                    <Icon name="list" size={28} />
+                    <p>{emptyText}</p>
+                  </div>
+                ) : (
+                  <table>
+                    <thead>
+                      <tr>
                         {columns.map((c) => (
-                          <td
+                          <th
                             key={c.key}
-                            className={c.align === "right" ? "number" : ""}
+                            scope="col"
+                            className={
+                              c.align === "right"
+                                ? "number"
+                                : c.title === "操作"
+                                  ? "actions-cell"
+                                  : ""
+                            }
                           >
-                            {c.render
-                              ? c.render(row)
-                              : String(
-                                  (row as Record<string, unknown>)[c.key] ??
-                                    "—",
-                                )}
-                          </td>
+                            {c.title}
+                          </th>
                         ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+                    </thead>
+                    <tbody>
+                      {rows.map((row) => (
+                        <tr key={rowKey(row)}>
+                          {columns.map((c) => (
+                            <td
+                              key={c.key}
+                              className={
+                                c.align === "right"
+                                  ? "number"
+                                  : c.title === "操作"
+                                    ? "actions-cell"
+                                    : ""
+                              }
+                            >
+                              {c.render
+                                ? c.render(row)
+                                : String(
+                                    (row as Record<string, unknown>)[c.key] ??
+                                      "—",
+                                  )}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
             </div>
             <nav className="pagination" aria-label="分页">
               <span>共 {total.toLocaleString("zh-CN")} 条</span>
@@ -543,10 +659,12 @@ export function AppShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const sidebar = useRef<HTMLElement>(null);
   const workspace = useRef<HTMLDivElement>(null);
+  const activeNavRef = useRef<HTMLAnchorElement>(null);
   const current = nav.find((n) => n.key === active);
   useEffect(() => {
     setMobileOpen(false);
     document.title = `${current?.label ?? "工作台"} · 呼叫中心 4.0`;
+    activeNavRef.current?.scrollIntoView({ block: "nearest" });
   }, [active, current?.label]);
   useEffect(() => {
     if (!mobileOpen) return;
@@ -640,6 +758,7 @@ export function AppShell({
                   <a
                     href={`?view=${n.key}`}
                     key={n.key}
+                    ref={active === n.key ? activeNavRef : undefined}
                     aria-current={active === n.key ? "page" : undefined}
                     onClick={(e) => {
                       if (e.metaKey || e.ctrlKey || e.shiftKey) return;

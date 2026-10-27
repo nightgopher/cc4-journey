@@ -25,6 +25,19 @@ export class ApiError extends Error {
   }
 }
 
+/** 服务端未提供 error 时的兜底文案：对人说话，不暴露状态码。 */
+const FALLBACK_ERROR: Record<number, string> = {
+  400: "提交的信息不完整或有误，请检查后重试。",
+  403: "当前账号没有执行此操作的权限。",
+  404: "没有找到对应的数据，它可能已被删除或暂未开通。",
+  409: "数据刚被其他人修改过，请刷新后再试。",
+  413: "文件过大，请压缩后再上传。",
+  500: "服务开小差了，请稍后重试；若持续失败请联系管理员。",
+  502: "服务暂时不可用，请稍后重试。",
+  503: "服务正在维护，请稍后重试。",
+  504: "服务响应超时，请稍后重试。",
+};
+
 export async function request<T = Record<string, unknown>>(
   method: string,
   path: string,
@@ -49,7 +62,12 @@ export async function request<T = Record<string, unknown>>(
       setToken(null);
       window.dispatchEvent(new Event("cc4:unauthorized"));
     }
-    throw new ApiError(res.status, data.error || `请求失败（${res.status}）`);
+    throw new ApiError(
+      res.status,
+      data.error ||
+        FALLBACK_ERROR[res.status] ||
+        "操作没有完成，请稍后重试；若持续失败请联系管理员。",
+    );
   }
   return data as T;
 }

@@ -14,6 +14,7 @@ import {
   Field,
   FormDialog,
   MoneyCell,
+  RowMenu,
   SelectField,
   Status,
   TextAreaField,
@@ -410,6 +411,7 @@ export function ActionDialog({
 }
 export interface RowAction {
   label: string;
+  kind?: "ghost" | "primary" | "ghost-danger";
   fields?: FormField[];
   visible?: (row: Row) => boolean;
   confirm?: string;
@@ -424,6 +426,7 @@ export interface ResourceDefinition {
   columns: Column<Row>[];
   client?: boolean;
   search?: boolean;
+  searchPlaceholder?: string;
   statuses?: string[];
   dateFilter?: boolean;
   canCreate?: boolean;
@@ -503,38 +506,78 @@ export function ResourcePage({
     columns.push({
       key: "actions",
       title: "操作",
-      render: (row) => (
-        <div className="row-actions">
-          {(typeof d.canEdit === "function" ? d.canEdit(row) : d.canEdit) && (
-            <Btn kind="ghost" onClick={() => setEdit(row)}>
-              编辑
-            </Btn>
-          )}
-          {detail && (
-            <Btn kind="ghost" onClick={() => setDetailRow(row)}>
-              查看详情
-            </Btn>
-          )}
-          {d.actions
-            ?.filter((a) => !a.visible || a.visible(row))
-            .map((a) => (
-              <Btn
-                key={a.label}
-                kind="ghost"
-                onClick={() => setAction({ row, action: a })}
-              >
-                {a.label}
+      render: (row) => {
+        const canEditRow =
+          typeof d.canEdit === "function" ? d.canEdit(row) : d.canEdit;
+        const canDeleteRow =
+          typeof d.canDelete === "function" ? d.canDelete(row) : d.canDelete;
+        const items: {
+          key: string;
+          label: string;
+          kind?: "ghost" | "primary" | "ghost-danger";
+          run: () => void;
+        }[] = [
+          ...(canEditRow
+            ? [{ key: "edit", label: "编辑", kind: "ghost" as const, run: () => setEdit(row) }]
+            : []),
+          ...(detail
+            ? [
+                {
+                  key: "detail",
+                  label: "查看详情",
+                  kind: "ghost" as const,
+                  run: () => setDetailRow(row),
+                },
+              ]
+            : []),
+          ...(d.actions ?? [])
+            .filter((a) => !a.visible || a.visible(row))
+            .map((a) => ({
+              key: a.label,
+              label: a.label,
+              kind: a.kind,
+              run: () => setAction({ row, action: a }),
+            })),
+          ...(canDeleteRow
+            ? [
+                {
+                  key: "delete",
+                  label: "删除",
+                  kind: "ghost-danger" as const,
+                  run: () => setRemove(row),
+                },
+              ]
+            : []),
+        ];
+        // 超过 3 个操作时收敛：主操作 + 首个常规操作保留在行内，其余进「更多」
+        const overflow = items.length > 3;
+        const primaries = items.filter((i) => i.kind === "primary");
+        const ghostFirst = items.find(
+          (i) => i.kind !== "primary" && i.kind !== "ghost-danger",
+        );
+        const inline = overflow
+          ? [...primaries, ...(ghostFirst ? [ghostFirst] : [])]
+          : items;
+        const rest = overflow ? items.filter((i) => !inline.includes(i)) : [];
+        return (
+          <div className="row-actions">
+            {inline.map((i) => (
+              <Btn key={i.key} kind={i.kind ?? "ghost"} onClick={i.run}>
+                {i.label}
               </Btn>
             ))}
-          {(typeof d.canDelete === "function"
-            ? d.canDelete(row)
-            : d.canDelete) && (
-            <Btn kind="ghost" onClick={() => setRemove(row)}>
-              删除
-            </Btn>
-          )}
-        </div>
-      ),
+            {rest.length > 0 && (
+              <RowMenu
+                items={rest.map((i) => ({
+                  label: i.label,
+                  danger: i.kind === "ghost-danger",
+                  onSelect: i.run,
+                }))}
+              />
+            )}
+          </div>
+        );
+      },
     });
   const filterForm =
     d.search || d.statuses || d.dateFilter ? (
@@ -562,7 +605,7 @@ export function ResourcePage({
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="输入姓名、手机号或关键词…"
+            placeholder={d.searchPlaceholder ?? "输入姓名、手机号或关键词…"}
           />
         )}
         {d.statuses && (
@@ -614,7 +657,9 @@ export function ResourcePage({
         emptyText={
           Object.values(filters).some(Boolean)
             ? "未找到符合条件的记录，请调整筛选。"
-            : "暂无记录。"
+            : d.canCreate
+              ? "暂无记录，点击右上角按钮创建第一条。"
+              : "暂无记录。"
         }
         filters={filterForm}
         toolbar={
@@ -717,10 +762,14 @@ export const amountColumn = (
   align: "right",
   render: (r) => <MoneyCell v={number(r, key)} tone={tone} />,
 });
-export const stateColumn = (key = "status", title = "状态"): Column<Row> => ({
+export const stateColumn = (
+  key = "status",
+  title = "状态",
+  labels?: Record<string, string>,
+): Column<Row> => ({
   key,
   title,
-  render: (r) => <Status value={text(r, key)} />,
+  render: (r) => <Status value={text(r, key)} label={labels?.[text(r, key)]} />,
 });
 export function DetailTable({
   path,

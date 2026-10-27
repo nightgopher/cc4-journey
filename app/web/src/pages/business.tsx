@@ -109,6 +109,7 @@ export function LeadsPage() {
         : []),
       {
         label: "标记成交",
+        kind: "primary",
         visible: (r) => !["converted", "lost"].includes(text(r, "status")),
         confirm: "确认该客户已经成交。",
         run: (r) => request("POST", `/leads/${text(r, "id")}/mark-paid`),
@@ -135,6 +136,7 @@ export function ProductsPage() {
         key: "products",
         client: true,
         search: true,
+        searchPlaceholder: "输入产品名称或编码…",
         statuses: ["active", "inactive"],
         canCreate: manage,
         canEdit: manage,
@@ -180,7 +182,10 @@ export function ProductsPage() {
           { key: "code", title: "编码" },
           amountColumn("price", "售价"),
           { key: "category", title: "分类" },
-          stateColumn(),
+          stateColumn("status", "状态", {
+            active: "在售",
+            inactive: "已停售",
+          }),
           {
             key: "commission_rules",
             title: "提成档位",
@@ -575,6 +580,7 @@ export function NotificationsPage() {
         description: "查看业绩审核、审批结果与团队通知。",
         path: "/notifications",
         key: "notifications",
+        createLabel: "发送通知",
         canCreate: roles(user, "admin", "hr", "manager", "workplace_manager"),
         fields: [
           { ...idField, key: "employee_id", label: "接收员工" },
@@ -660,6 +666,8 @@ export function SettingsPage() {
         key: "settings",
         client: true,
         search: true,
+        searchPlaceholder: "输入配置名称或说明关键词…",
+        createLabel: "新增配置",
         canCreate: manage,
         canEdit: manage,
         canDelete: manage,
