@@ -123,7 +123,7 @@ jobs:
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: |
           python3 - <<'PY'
-          import json,os,urllib.error,urllib.request
+          import json,os,pathlib,urllib.error,urllib.request
           base='http://150.5.143.32:8080/cc4'
           def get(path):
               with urllib.request.urlopen(base+path,timeout=20) as response:return response.read()
@@ -132,10 +132,16 @@ jobs:
           assert json.loads(get('/version.json'))['revision']==os.environ['GITHUB_SHA']
           html=get('/').decode()
           assert '/cc4/assets/' in html and 'localhost' not in html
+          for extension in ('png','pdf'):
+              name='invoice-demo.'+extension
+              assert get('/samples/'+name)==pathlib.Path('app/web/public/samples',name).read_bytes(),name+' is missing or served as a page'
           try:get('/api/v1/employees')
           except urllib.error.HTTPError as error:assert error.code==401,error.code
           else:raise AssertionError('Protected API allowed anonymous access')
-          print('Public frontend, matching API revision and authentication boundary verified.')
+          try:get('/api/v1/reimbursements')
+          except urllib.error.HTTPError as error:assert error.code==401,error.code
+          else:raise AssertionError('Reimbursement API allowed anonymous access')
+          print('Public frontend, matching API revision, synthetic samples and authentication boundaries verified.')
           with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as output:
               output.write('[Open CC4]('+base+'/) · [Health]('+base+'/health)\n\nDeployed `'+health['revision']+'`. PostgreSQL 14 business integration, frontend build and public checks passed.\n')
           PY

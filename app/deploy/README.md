@@ -18,6 +18,8 @@
 
 `004` 增加报销、识别任务、版本与处理记录，保留原业务表。原图位于持久上传目录的`receipts/`，不随release替换。已安装旧发布校验器的服务器，应由管理员用本仓库最新版`app/deploy/verify_release.py`更新`/usr/local/lib/cc4/verify_release.py`；静态白名单仅新增两个明确的合成样例PNG/PDF路径，未放开任意上传文件。
 
+同时将`nginx-location.conf`中新加的两个`/cc4/samples/invoice-demo.png`和`.pdf`精确路由并入已安装的`/etc/nginx/snippets/cc4.conf`，`nginx -t`通过后reload。否则SPA兜底会把下载链接返回成HTML。发布检查会逐字节比对两个公开合成样例，并检查报销API匿名401；其他报销原图仍只能通过认证API读取。
+
 初始账号通过受保护的管理员通道配置。数据库快照、密码、截图和登录凭据均不进入 Git 仓库或 Actions 构建产物。
 
 ## 自动发布
