@@ -7,8 +7,10 @@
 - 主入口：<http://150.5.143.32:8080/>，自动进入 `/cc4/`。
 - 健康检查：<http://150.5.143.32:8080/cc4/health>。
 - 前端版本：<http://150.5.143.32:8080/cc4/version.json>。
-- 本次运行版本：`d0cfbdb458e55fe1f0c106c81ec513e5246860dc`。
+- 首次部署验收版本：`d0cfbdb458e55fe1f0c106c81ec513e5246860dc`。
 - GitHub Actions：[成功发布记录](https://github.com/nightgopher/cc4-journey/actions/runs/40464973694)。后续 main 的应用或发布配置变更会自动测试、构建和发布。
+
+后续连续经营演练版本为 `37e7de6d1ec703206f638b6f192f1e0e28589796`，见[成功发布](https://github.com/nightgopher/cc4-journey/actions/runs/40483826357)与[演练记录](08-business-simulation.md)。下述17组业务、18页与初始数据量为首次部署验收证据；本轮扩展为19组业务、19页及831项演练核对。
 
 80 端口下的 `/cc4/` 作为兼容入口保留。原 Nginx 根路径仍转发到旧项目的 3200 端口；部署前该根路径即返回 502，本次没有接管原项目根路径。
 
