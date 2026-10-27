@@ -51,6 +51,8 @@ VITE_API_BASE_URL=http://localhost:3101/api/v1 npm run dev -- --host 127.0.0.1 -
 
 ## 验证
 
+学员最终交付统一从仓库根目录运行 `python3 app/verification/verify.py`。它自建临时PostgreSQL14，执行完整验收并输出报告、日志、幂等对比和1元反例证据，无需老师账号。操作、接口示例、判断依据和提交模板见 [学员验收包](verification/README.md)。以下命令保留用于开发时单独验证。
+
 ```sh
 cd app
 go test ./...
