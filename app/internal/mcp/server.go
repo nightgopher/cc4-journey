@@ -9,8 +9,11 @@ package mcp
 
 import (
 	"context"
+	"crypto/subtle"
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -273,11 +276,15 @@ func performanceApprove(ctx context.Context, _ *mcp.CallToolRequest, in Performa
 
 // ---- Server 装配 ----
 
-// NewServer 构建 MCP Server 实例（工具清单：6 个只读 + dry-run）。
+// NewServer exposes five query/preview tools and two administrative write tools.
 func NewServer() *mcp.Server {
+	version := os.Getenv("CC4_RELEASE_SHA")
+	if version == "" {
+		version = "dev"
+	}
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "cc4-callcenter",
-		Version: "1.0.0",
+		Version: version,
 	}, &mcp.ServerOptions{
 		Instructions: "Call Center 4.0 业务系统工具集。薪资/提成/等级判定均为只读 dry-run；" +
 			"业务口径以 GOLDEN.md 金标准为准（B级88元总量顺延、A级出勤按去重日期、A零业绩转人工）。",
@@ -327,18 +334,55 @@ func ServeStdio() error {
 	return NewServer().Run(context.Background(), &mcp.StdioTransport{})
 }
 
-// HTTPHandler 返回挂到主 HTTP 服务的 Streamable HTTP MCP 端点。
-// authToken 非空时校验 Authorization: Bearer <token>。
+// HTTPHandler keeps one transport/session registry for the handler's lifetime.
+// A separate integration token grants all seven tools; HTTP is disabled when
+// no token is configured. Browser origins are explicitly checked before auth.
 func HTTPHandler(authToken string) http.Handler {
+	transport := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
+		return NewServer()
+	}, &mcp.StreamableHTTPOptions{
+		SessionTimeout:      15 * time.Minute,
+		MaxRequestBodyBytes: 1 << 20,
+	})
+	allowedOrigins := strings.FieldsFunc(os.Getenv("MCP_ALLOWED_ORIGINS"), func(r rune) bool { return r == ',' })
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if authToken != "" {
-			if r.Header.Get("Authorization") != "Bearer "+authToken {
-				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		w.Header().Set("Cache-Control", "no-store")
+		if authToken == "" {
+			http.Error(w, `{"error":"MCP is not configured"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if origin := r.Header.Get("Origin"); origin != "" {
+			scheme := "http"
+			if r.TLS != nil {
+				scheme = "https"
+			}
+			allowed := origin == scheme+"://"+r.Host
+			for _, configured := range allowedOrigins {
+				allowed = allowed || origin == strings.TrimSpace(configured)
+			}
+			if !allowed {
+				http.Error(w, `{"error":"Origin is not allowed"}`, http.StatusForbidden)
 				return
 			}
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Add("Vary", "Origin")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, MCP-Protocol-Version, Mcp-Session-Id, Last-Event-ID")
+			w.Header().Set("Access-Control-Expose-Headers", "Mcp-Session-Id")
 		}
-		mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
-			return NewServer()
-		}, nil).ServeHTTP(w, r)
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		scheme, supplied, ok := strings.Cut(r.Header.Get("Authorization"), " ")
+		if !ok || !strings.EqualFold(scheme, "Bearer") || subtle.ConstantTimeCompare([]byte(supplied), []byte(authToken)) != 1 {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="cc4-mcp"`)
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+		// The main API bounds ordinary writes to 90 seconds. A standalone SSE
+		// stream can live longer; the transport expires idle sessions separately.
+		_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
+		transport.ServeHTTP(w, r)
 	})
 }

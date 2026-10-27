@@ -68,6 +68,10 @@ npm run build
 
 ## MCP
 
+云端 Agent 使用 **Streamable HTTP**：`https://150.5.143.32/mcp`，与工作台连接同一套云端业务数据库，需独立 Bearer 集成凭据。主应用直接挂载该端点，未配置 `MCP_TOKEN` 时不开放。7 个工具、客户端配置、权限范围与验证命令见 [MCP 接入说明](MCP.md)。
+
+以下保留本地 stdio 程序的构建方式：
+
 ```sh
 cd app
 go build -o bin/cc4-mcp ./cmd/cc4-mcp

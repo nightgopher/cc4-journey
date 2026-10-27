@@ -18,10 +18,13 @@ import (
 // 用法：
 //
 //	cc4-mcp            # stdio 模式（配置到 EasyCode / Claude Code 的 .mcp.json）
-//	cc4-mcp -http :3102  # Streamable HTTP 模式（远程 agent，可选 -token 校验）
+//	MCP_HTTP_ADDR=127.0.0.1:3102 MCP_TOKEN=... cc4-mcp  # 独立 Streamable HTTP 模式
 func main() {
 	httpAddr := os.Getenv("MCP_HTTP_ADDR")
 	token := os.Getenv("MCP_TOKEN")
+	if httpAddr != "" && token == "" {
+		log.Fatal("HTTP MCP requires MCP_TOKEN")
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -40,7 +43,8 @@ func main() {
 
 	if httpAddr != "" {
 		log.Printf("[cc4-mcp] HTTP listening on %s", httpAddr)
-		log.Fatal(http.ListenAndServe(httpAddr, ccmcp.HTTPHandler(token)))
+		server := &http.Server{Addr: httpAddr, Handler: ccmcp.HTTPHandler(token), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second}
+		log.Fatal(server.ListenAndServe())
 		return
 	}
 	// stdio 模式：日志必须走 stderr，stdout 是协议通道。

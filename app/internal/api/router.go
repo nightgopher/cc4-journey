@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/golang-jwt/jwt/v5"
 
+	ccmcp "github.com/nightgopher/cc4-journey/app/internal/mcp"
 	"github.com/nightgopher/cc4-journey/app/internal/repo"
 	"github.com/nightgopher/cc4-journey/app/internal/service"
 )
@@ -30,6 +31,10 @@ type apiHandler struct {
 // （生产环境应收紧 CORS_ORIGIN；对齐期保持与 JS 后端一致。）
 func cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/mcp" {
+			next.ServeHTTP(w, r)
+			return
+		}
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -60,6 +65,7 @@ func Router(jwtSecret string) http.Handler {
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "OK", "timestamp": time.Now().UTC().Format(time.RFC3339Nano), "revision": os.Getenv("CC4_RELEASE_SHA")})
 	})
+	r.Handle("/mcp", ccmcp.HTTPHandler(os.Getenv("MCP_TOKEN")))
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// 公开端点

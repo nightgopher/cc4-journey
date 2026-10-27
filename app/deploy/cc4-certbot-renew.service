@@ -1,0 +1,12 @@
+[Unit]
+Description=Renew CC4 short-lived IP TLS certificate
+After=network-online.target nginx.service
+Wants=network-online.target
+ConditionPathExists=/etc/letsencrypt/renewal/cc4-ip.conf
+
+[Service]
+Type=oneshot
+ExecStart=/opt/cc4-certbot/bin/certbot renew --cert-name cc4-ip --quiet --deploy-hook /usr/local/sbin/cc4-tls-reload
+TimeoutStartSec=900
+PrivateTmp=true
+UMask=0077

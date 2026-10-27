@@ -1,0 +1,10 @@
+[Unit]
+Description=Check CC4 IP certificate renewal every six hours
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=6h
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target
