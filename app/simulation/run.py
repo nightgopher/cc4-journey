@@ -21,6 +21,7 @@ from zoneinfo import ZoneInfo
 
 STATE_KEY = "business_simulation_state_v1"
 REPORT_KEY = "business_simulation_report_v1"
+STATE_VERSION = 2
 BUSINESS_ZONE = ZoneInfo("Asia/Shanghai")
 PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jR9sAAAAASUVORK5CYII=")
 
@@ -94,11 +95,12 @@ class Simulation:
             self.api.simulation_owner = lease_owner
         settings = {row["key"]: row["value"] for row in api.get("/settings?includeSimulation=true")["settings"]}
         self.state = json.loads(settings[STATE_KEY]) if STATE_KEY in settings else {
-            "version": 1, "origin": (today - dt.timedelta(days=days - 1)).isoformat(),
+            "version": STATE_VERSION, "origin": (today - dt.timedelta(days=days - 1)).isoformat(),
             "lastDay": None, "actors": {}, "hires": [], "daily": {}, "events": [], "checks": [], "pending": None,
+            "receivables": {}, "expenses": {}, "settlements": {}, "contacts": {}, "approvedOrders": {}, "completedEvents": {},
         }
         self.tokens = {}
-        self.report = {"version": 1, "status": "running", "origin": self.state["origin"], "through": self.state["lastDay"],
+        self.report = {"version": STATE_VERSION, "status": "running", "origin": self.state["origin"], "through": self.state["lastDay"],
                        "businessTimezone": "Asia/Shanghai", "events": self.state["events"], "checks": self.state["checks"], "error": None}
 
     def setting(self, key, value):
@@ -273,6 +275,8 @@ class Simulation:
                 if row.get("assigned_to") is None:
                     self.api.request("PUT", f"/wechat-leads/{row['id']}/assign", {"employeeId": self.state["actors"]["growth"]["id"]})
             available = [row for row in mock if row.get("assigned_to") in (None, self.state["actors"]["growth"]["id"])]
+            if not available:
+                raise ScenarioFailure("当日模拟线索已分配给其他员工，没有演练销售可跟进的线索；未覆盖已有分配")
             if available:
                 first = available[0]
                 self.actor("growth").post(f"/wechat-leads/{first['id']}/follow-up", {"content": "模拟·已联系家长，介绍99元体验课"})
@@ -294,7 +298,7 @@ class Simulation:
         def submit(index):
             boundary = "cc4simulation" + day.replace("-", "") + str(index)
             chunks = []
-            contact_phone = self.state.get("contacts", {}).get(day, {}).get("phone", self.phone("customer_" + day))
+            contact_phone = self.state["contacts"][day]["phone"]
             fields = {"employeeId": actor_id, "workDate": day, "productId": self.state["product"], "orders": 1,
                       "parentPhone": contact_phone if index in (0,3) else self.phone("self_" + day + str(index)), "orderId": "SIM_" + day + "_" + str(index), "notes": "模拟业务审核样例"}
             for key, value in fields.items():
@@ -425,7 +429,20 @@ class Simulation:
             self.state.setdefault("settlements", {})[day] = {"id": salary_id, "year": date.year, "month": date.month, "amount": 70}
         self.event(day, "工资：70元离职结算、重复发放、撤销和再发放", run)
 
+    def validate_state(self):
+        required = ("receivables", "expenses", "settlements", "contacts", "approvedOrders", "completedEvents")
+        if self.state.get("version") != STATE_VERSION or any(key not in self.state for key in required):
+            raise ScenarioFailure("旧版演练状态缺少完整业务索引，请先备份核查并迁移，未自动重放业务")
+        through = self.state.get("lastDay")
+        if through:
+            for date in self.state["daily"]:
+                if date <= through and any(date not in self.state[key] for key in ("receivables", "expenses", "contacts", "approvedOrders")):
+                    raise ScenarioFailure("已完成日期缺少业务索引：" + date)
+            if not self.state["settlements"]:
+                raise ScenarioFailure("已完成演练缺少工资结算索引")
+
     def reconcile(self, day):
+        self.validate_state()
         income = self.api.rows("/finance/income", "income")
         expected_sales = actual_sales = 0
         for date, actors in self.state["daily"].items():
@@ -472,6 +489,7 @@ class Simulation:
             self.check_scope = "账务复核：运营费用"
             own = [row for row in expense if row["id"] == expected["id"]]
             self.check("费用记录存在且唯一", 1, len(own), date)
+            self.check("运营费用仍为已确认", "confirmed", own[0]["status"], date)
             self.money_check("回读运营费用", 6550, own[0]["amount"], date)
             actual_costs += cents(own[0]["amount"])
         actual_wages = 0
@@ -526,14 +544,18 @@ class Simulation:
         if index >= 3:
             self.leave(self.state["hires"][index - 3]["key"], day)
         def customer():
-            contact = self.state.get("contacts", {}).get(day, {})
-            phone = contact.get("phone", self.phone("customer_" + day))
+            contact = self.state["contacts"][day]
+            phone = contact["phone"]
             row_id = self.api.post("/customers", {"name": "模拟·体验课家长 " + day, "phone": phone, "status": "active", "customerType": "individual"}, 201)["id"]
             employee_id = self.state["actors"]["growth"]["id"]
             self.api.post(f"/customers/{row_id}/orders", {"totalAmount": 99, "orderDate": day, "status":"confirmed", "employeeId":employee_id}, 201)
             order = self.api.get(f"/customers/{row_id}/orders")["orders"][0]
             self.check("客户订单金额", 9900, cents(order["total_amount"]), day)
             self.check("客户订单归属销售", employee_id, order["employee_id"], day)
+            stored_customers = self.api.rows("/customers?search=" + urllib.parse.quote(phone), "customers")
+            stored = next(row for row in stored_customers if row["id"] == row_id)
+            self.check("客户档案保存外呼线索手机号", phone, stored["phone"], day)
+            self.check("客户订单关联已保存客户", row_id, order["customer_id"], day)
             details = self.api.rows(f"/daily-performance/order-details?employee_id={employee_id}","orderDetails")
             detail = next(row for row in details if row["id"] == self.state["approvedOrders"][day])
             self.check("外呼线索、审核订单与客户使用同一手机号",phone,detail["parent_phone"],day)
@@ -563,6 +585,7 @@ class Simulation:
         try:
             if self.state["pending"]:
                 raise ScenarioFailure("Uncertain prior event requires operator reconciliation: " + self.state["pending"]["title"])
+            self.validate_state()
             if not self.api.get("/simulation/report")["enabled"]:
                 raise ScenarioFailure("Business simulation is not enabled on this server")
             if self.state["daily"]:

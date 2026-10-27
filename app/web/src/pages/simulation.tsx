@@ -98,7 +98,12 @@ export function SimulationPage() {
     {
       key: "passed",
       title: "核对结果",
-      render: (row) => <Status value={row.passed ? "approved" : "rejected"} />,
+      render: (row) => (
+        <Status
+          value={row.passed ? "approved" : "rejected"}
+          label={row.passed ? "通过" : "未通过"}
+        />
+      ),
     },
   ];
   return (
@@ -133,6 +138,13 @@ export function SimulationPage() {
                     : "经营演练进行中"}
               </h2>
               <Status
+                label={
+                  report.status === "passed"
+                    ? "通过"
+                    : report.status === "failed"
+                      ? "失败"
+                      : "执行中"
+                }
                 value={
                   report.status === "passed"
                     ? "approved"
@@ -230,6 +242,7 @@ export function SimulationPage() {
                   title: "状态",
                   render: (row) => (
                     <Status
+                      label={row.status === "passed" ? "完成" : "失败"}
                       value={row.status === "passed" ? "approved" : "rejected"}
                     />
                   ),

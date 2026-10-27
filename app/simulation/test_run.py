@@ -145,7 +145,7 @@ class SimulationSafetyTest(unittest.TestCase):
         simulation = self.simulation()
         day = "2026-10-27"
         simulation.state["expenses"] = {day: {"id": 3}}
-        simulation.api.rows = lambda path, key: [{"id": 3, "amount": "65.51"}] if key == "expense" else []
+        simulation.api.rows = lambda path, key: [{"id": 3, "amount": "65.51", "status":"confirmed"}] if key == "expense" else []
         with self.assertRaisesRegex(ScenarioFailure, "回读运营费用"):
             simulation.reconcile(day)
 
@@ -164,6 +164,29 @@ class SimulationSafetyTest(unittest.TestCase):
         simulation.api.rows = lambda path,key: [{"reference_type":"receivable_payment","reference_id":"payment-1","amount":50}, {"reference_type":"receivable_payment","reference_id":"payment-2","amount":50}] if key=="income" else []
         with self.assertRaisesRegex(ScenarioFailure,"逐笔回款收入"):
             simulation.reconcile(day)
+
+    def test_legacy_state_cannot_skip_financial_readback(self):
+        simulation = self.simulation()
+        simulation.state["version"] = 1
+        with self.assertRaisesRegex(ScenarioFailure,"旧版演练状态"):
+            simulation.reconcile("2026-10-27")
+
+    def test_cancelled_cost_cannot_be_counted_as_cash_outflow(self):
+        simulation = self.simulation()
+        day = "2026-10-27"
+        simulation.state["expenses"] = {day: {"id": 3}}
+        simulation.api.rows = lambda path,key: [{"id":3,"amount":"65.50","status":"cancelled"}] if key=="expense" else []
+        with self.assertRaisesRegex(ScenarioFailure,"运营费用仍为已确认"):
+            simulation.reconcile(day)
+
+    def test_upstream_without_owned_contact_cannot_pass(self):
+        simulation = self.simulation()
+        simulation.state["actors"]["growth"] = {"id":9}
+        original_post=simulation.api.post
+        simulation.api.post=lambda path,body,expected=200: {"data":{"mock":True,"processedCount":120,"savedCount":0,"duplicateCount":30}} if path=="/wechat-leads/sync" else original_post(path,body,expected)
+        simulation.api.rows=lambda path,key: [{"id":n,"data_source":"mock","assigned_to":99} for n in range(30)]
+        with self.assertRaisesRegex(ScenarioFailure,"没有演练销售可跟进的线索"):
+            simulation.upstream("2026-10-27")
 
 
 if __name__ == "__main__":
