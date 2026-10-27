@@ -1,0 +1,128 @@
+[
+  {
+    "page": "经营概览",
+    "heading": "经营概览",
+    "errors": [],
+    "overflow": false,
+    "rows": 7
+  },
+  {
+    "page": "线索管理",
+    "heading": "线索管理",
+    "errors": [],
+    "overflow": false,
+    "rows": 1
+  },
+  {
+    "page": "微信线索",
+    "heading": "微信线索",
+    "errors": [],
+    "overflow": false,
+    "rows": 1
+  },
+  {
+    "page": "客户管理",
+    "heading": "客户管理",
+    "errors": [],
+    "overflow": false,
+    "rows": 1
+  },
+  {
+    "page": "每日业绩",
+    "heading": "每日业绩",
+    "errors": [],
+    "overflow": false,
+    "rows": 2
+  },
+  {
+    "page": "月度业绩",
+    "heading": "月度业绩",
+    "errors": [],
+    "overflow": false,
+    "rows": 1
+  },
+  {
+    "page": "产品管理",
+    "heading": "产品管理",
+    "errors": [],
+    "overflow": false,
+    "rows": 1
+  },
+  {
+    "page": "员工管理",
+    "heading": "员工管理",
+    "errors": [],
+    "overflow": false,
+    "rows": 2
+  },
+  {
+    "page": "团队管理",
+    "heading": "团队管理",
+    "errors": [],
+    "overflow": false,
+    "rows": 1
+  },
+  {
+    "page": "考勤管理",
+    "heading": "考勤管理",
+    "errors": [],
+    "overflow": false,
+    "rows": 3
+  },
+  {
+    "page": "审批管理",
+    "heading": "订单审核",
+    "errors": [],
+    "overflow": false,
+    "rows": 1
+  },
+  {
+    "page": "薪资管理",
+    "heading": "薪资管理",
+    "errors": [],
+    "overflow": false,
+    "rows": 1
+  },
+  {
+    "page": "财务管理",
+    "heading": "收入管理",
+    "errors": [],
+    "overflow": false,
+    "rows": 3
+  },
+  {
+    "page": "工作日配置",
+    "heading": "工作日配置",
+    "errors": [],
+    "overflow": false,
+    "rows": 0
+  },
+  {
+    "page": "通知中心",
+    "heading": "通知中心",
+    "errors": [],
+    "overflow": false,
+    "rows": 1
+  },
+  {
+    "page": "系统设置",
+    "heading": "系统设置",
+    "errors": [],
+    "overflow": false,
+    "rows": 1
+  },
+  {
+    "page": "职位权限",
+    "heading": "职位权限",
+    "errors": [],
+    "overflow": false,
+    "rows": 0
+  },
+  {
+    "page": "个人中心",
+    "heading": "个人中心",
+    "errors": [],
+    "overflow": false,
+    "rows": 0
+  }
+]

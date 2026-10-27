@@ -13,7 +13,20 @@ import (
 // 遍历全部活跃员工 → 判定 → 生成审批单（条件满足日记为昨天）。
 // 实习生转正保持自动（无审批），与旧行为一致。
 func RunDailyLevelCheck(ctx context.Context, now time.Time) ([]map[string]any, error) {
+	tx, err := repo.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	var locked bool
+	if err = tx.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock(hashtextextended('daily-level-check',0))`).Scan(&locked); err != nil {
+		return nil, err
+	}
+	if !locked {
+		return []map[string]any{}, nil
+	}
 	yesterday := now.AddDate(0, 0, -1).Format("2006-01-02")
+	cutoff := now.AddDate(0, 0, -1)
 
 	// 活跃员工清单（对齐旧 cron 查询）。
 	ids, err := activeEmployeeIDs(ctx)
@@ -21,7 +34,7 @@ func RunDailyLevelCheck(ctx context.Context, now time.Time) ([]map[string]any, e
 		return nil, err
 	}
 
-	var results []map[string]any
+	results := []map[string]any{}
 	for _, id := range ids {
 		emp, err := repo.GetEmployeeByID(ctx, id)
 		if err != nil {
@@ -31,7 +44,7 @@ func RunDailyLevelCheck(ctx context.Context, now time.Time) ([]map[string]any, e
 		switch emp.Level {
 		case domain.LevelTrainee:
 			// 满 3 个工作日自动转 C（无审批），对齐旧 promoteTraineeToCLevel。
-			joinDays, err := workdaysSinceJoin(ctx, id, now)
+			joinDays, err := workdaysSinceJoin(ctx, id, cutoff)
 			if err == nil && joinDays >= domain.CPromotionWindow {
 				if err := autoPromoteTrainee(ctx, id, now); err == nil {
 					results = append(results, map[string]any{
@@ -41,8 +54,8 @@ func RunDailyLevelCheck(ctx context.Context, now time.Time) ([]map[string]any, e
 			}
 
 		case domain.LevelC, domain.LevelB, domain.LevelA:
-			r, err := CheckLevelTransition(ctx, id, now)
-			if err != nil || r == nil || r.Action == domain.TransitionKeep {
+			r, err := CheckLevelTransition(ctx, id, cutoff)
+			if err != nil || r == nil || (r.Action == domain.TransitionKeep && !r.NeedsVote) {
 				continue
 			}
 			// 生成审批单（对齐旧 createSystemApprovalRequest）。
@@ -51,6 +64,9 @@ func RunDailyLevelCheck(ctx context.Context, now time.Time) ([]map[string]any, e
 				domain.TransitionPendingElimination: "elimination",
 				domain.TransitionPendingDemotion:    "demotion",
 			}[r.Action]
+			if r.Action == domain.TransitionKeep && r.NeedsVote {
+				requestType = "level_review"
+			}
 			metadata := map[string]any{
 				"employee_id":        id,
 				"from_level":         emp.Level,
@@ -59,7 +75,10 @@ func RunDailyLevelCheck(ctx context.Context, now time.Time) ([]map[string]any, e
 				"condition_met_date": yesterday,
 			}
 			title := fmt.Sprintf("%s 等级变更申请（%s → %s）", emp.Name, emp.Level, r.Target)
-			_, err = repo.InsertApprovalRequest(ctx, &repo.ApprovalRequest{
+			if requestType == "level_review" {
+				title = fmt.Sprintf("%s A级零业绩人工核查", emp.Name)
+			}
+			_, created, insertErr := repo.EnsureSystemApproval(ctx, &repo.ApprovalRequest{
 				RequestType: requestType,
 				Title:       title,
 				Priority:    "high",
@@ -67,7 +86,7 @@ func RunDailyLevelCheck(ctx context.Context, now time.Time) ([]map[string]any, e
 				Status:      "pending",
 				Metadata:    metadata,
 			})
-			if err == nil {
+			if insertErr == nil && created {
 				repo.WriteAudit(ctx, "cron", "approval_created",
 					fmt.Sprintf("employee=%d type=%s %s", id, requestType, r.Reason))
 				results = append(results, map[string]any{
@@ -80,7 +99,7 @@ func RunDailyLevelCheck(ctx context.Context, now time.Time) ([]map[string]any, e
 }
 
 func activeEmployeeIDs(ctx context.Context) ([]int, error) {
-	rows, err := repo.Pool.Query(ctx, `SELECT id FROM employees WHERE status = 'active'`)
+	rows, err := repo.Pool.Query(ctx, `SELECT e.id FROM employees e LEFT JOIN users u ON u.id=e.user_id WHERE e.status='active' AND COALESCE(u.role,'employee')!='admin'`)
 	if err != nil {
 		return nil, err
 	}
@@ -116,6 +135,13 @@ func autoPromoteTrainee(ctx context.Context, employeeID int, now time.Time) erro
 		return err
 	}
 	defer tx.Rollback(ctx)
+	var current string
+	if err = tx.QueryRow(ctx, `SELECT level FROM employees WHERE id=$1 FOR UPDATE`, employeeID).Scan(&current); err != nil {
+		return err
+	}
+	if current != domain.LevelTrainee {
+		return nil
+	}
 
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO employee_level_history (employee_id, from_level, to_level, change_date, reason)

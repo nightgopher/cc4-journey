@@ -1,4 +1,4 @@
-// Package api HTTP 路由层：端点路径、入参、响应字段与存量后端逐一对齐。
+// Package api exposes the Go business API and preserves the established response envelopes.
 package api
 
 import (
@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/nightgopher/cc4-journey/app/internal/repo"
@@ -31,6 +32,7 @@ func cors(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Expose-Headers", "Content-Disposition")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -41,11 +43,18 @@ func cors(next http.Handler) http.Handler {
 
 // Router 构建对齐版路由树。
 // 存量挂载点：/api/v1/auth|employees|daily-performance|salary|workdays|approvals|...
-// 本期对齐 P0 六组；其余组按同一模式增量补齐。
+// Business groups share authentication, operation permissions and module access.
 func Router(jwtSecret string) http.Handler {
 	h := &apiHandler{jwtSecret: []byte(jwtSecret)}
 	r := chi.NewRouter()
 	r.Use(cors)
+	r.Use(middleware.Recoverer)
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r.Body = http.MaxBytesReader(w, r.Body, 16<<20)
+			next.ServeHTTP(w, r)
+		})
+	})
 
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "OK", "timestamp": time.Now().UTC().Format(time.RFC3339Nano)})
@@ -54,10 +63,12 @@ func Router(jwtSecret string) http.Handler {
 	r.Route("/api/v1", func(r chi.Router) {
 		// 公开端点
 		r.Post("/auth/login", h.login)
+		r.Get("/settings/public", h.publicSettings)
 
 		// 认证区
 		r.Group(func(r chi.Router) {
 			r.Use(h.auth)
+			r.Use(h.authorize)
 			r.Get("/auth/session", h.session)
 
 			r.Get("/employees", h.listEmployees)
@@ -78,8 +89,23 @@ func Router(jwtSecret string) http.Handler {
 
 			r.Post("/employees/check-level-transitions", h.checkLevelTransitions)
 			r.Post("/employees/trigger-level-check", h.triggerLevelCheck)
+
+			// 其余业务组（leads/customers/products/attendance/teams/notifications/settings）
+			h.RegisterExtraRoutes(r)
+			h.registerFinance(r)
+			h.registerPermissions(r)
+			h.registerStaff(r)
+			h.registerApprovals(r)
+			h.registerOperations(r)
+			h.registerOrders(r)
+			h.registerWechat(r)
+			h.registerAttendance(r)
+			h.registerLookups(r)
+			r.Get("/dashboard/today", h.dashboardToday)
+			r.Get("/dashboard/trend", h.dashboardTrend)
 		})
 	})
+	r.Route("/api", func(r chi.Router) { r.Use(h.auth); r.Use(h.authorize); h.registerWechat(r) })
 	return r
 }
 
@@ -103,6 +129,12 @@ func pageParams(r *http.Request) (page, limit, offset int) {
 	}
 	if limit < 1 {
 		limit = 50
+	}
+	if limit > 500 {
+		limit = 500
+	}
+	if page > 1_000_000 {
+		page = 1_000_000
 	}
 	return page, limit, (page - 1) * limit
 }
@@ -208,7 +240,7 @@ func (h *apiHandler) auth(next http.Handler) http.Handler {
 		}
 		tok, err := jwt.ParseWithClaims(authz[7:], &AuthClaims{}, func(t *jwt.Token) (any, error) {
 			return h.jwtSecret, nil
-		})
+		}, jwt.WithValidMethods([]string{"HS256"}), jwt.WithExpirationRequired())
 		if err != nil || !tok.Valid {
 			writeErr(w, http.StatusUnauthorized, "无效的访问令牌")
 			return
@@ -226,6 +258,11 @@ func (h *apiHandler) auth(next http.Handler) http.Handler {
 			writeErr(w, http.StatusUnauthorized, "账户已被停用")
 			return
 		}
+		var inactive bool
+		if err = repo.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM employees WHERE user_id=$1 AND status!='active')`, claims.UserID).Scan(&inactive); err != nil || inactive {
+			writeErr(w, 401, "员工已离职或被暂停")
+			return
+		}
 		// 注入上下文（对齐旧 req.userId / req.userRole）。
 		ctx := withUser(r.Context(), claims.UserID, role)
 		next.ServeHTTP(w, r.WithContext(ctx))
@@ -234,7 +271,12 @@ func (h *apiHandler) auth(next http.Handler) http.Handler {
 
 func (h *apiHandler) session(w http.ResponseWriter, r *http.Request) {
 	uid, _ := r.Context().Value(ctxUserID).(int)
-	writeJSON(w, http.StatusOK, map[string]any{"userId": uid})
+	row, err := repo.One(r.Context(), repo.Pool, `SELECT u.id,u.phone,u.email,u.role,e.id AS employee_id,e.name,e.level,e.position,e.team_id FROM users u LEFT JOIN employees e ON e.user_id=u.id WHERE u.id=$1`, uid)
+	if err != nil {
+		dbError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"userId": uid, "user": row})
 }
 
 // ---- employees ----
@@ -249,6 +291,14 @@ func (h *apiHandler) listEmployees(w http.ResponseWriter, r *http.Request) {
 		Level:      r.URL.Query().Get("level"),
 		Status:     r.URL.Query().Get("status"),
 		Limit:      limit, Offset: offset,
+	}
+	if role == "employee" {
+		e, err := repo.GetEmployeeByUserID(r.Context(), uid)
+		if err != nil {
+			writeErr(w, 403, "员工档案不存在")
+			return
+		}
+		p.EmployeeID = &e.ID
 	}
 	// manager/workplace_manager 数据隔离（对齐旧 getCurrentUserTeamContext）。
 	if role == "manager" || role == "workplace_manager" {
@@ -271,6 +321,9 @@ func (h *apiHandler) getEmployee(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, "无效的员工ID")
+		return
+	}
+	if !canAccessEmployee(w, r, id) {
 		return
 	}
 	emp, err := repo.GetEmployeeByID(r.Context(), id)
@@ -330,11 +383,13 @@ func (h *apiHandler) listPerformance(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		q.EmployeeID = &emp.ID
-	case "manager":
+	case "manager", "workplace_manager":
 		emp, err := repo.GetEmployeeByUserID(r.Context(), uid)
-		if err == nil && emp.TeamID != nil {
-			q.TeamID = emp.TeamID
+		if err != nil || emp.TeamID == nil {
+			writeErr(w, 403, "员工档案或团队不存在")
+			return
 		}
+		q.TeamID = emp.TeamID
 	default:
 		q.EmployeeID = queryInt(r, "employee_id")
 	}
@@ -344,28 +399,24 @@ func (h *apiHandler) listPerformance(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "查询失败")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"performances": list, "pagination": pagination(page, limit, total)})
+	writeJSON(w, http.StatusOK, map[string]any{"performances": list, "dailyPerformance": list, "pagination": pagination(page, limit, total)})
 }
 
 func (h *apiHandler) performanceCalendar(w http.ResponseWriter, r *http.Request) {
 	year, _ := strconv.Atoi(r.URL.Query().Get("year"))
 	month, _ := strconv.Atoi(r.URL.Query().Get("month"))
-	if year == 0 || month == 0 {
+	if !validPeriod(year, month) {
 		writeErr(w, http.StatusBadRequest, "年份和月份是必填项")
 		return
 	}
-	uid, role := mustUser(r.Context())
 	employeeID := queryInt(r, "employee_id")
-	var teamID *int
-	if role == "manager" {
-		if emp, err := repo.GetEmployeeByUserID(r.Context(), uid); err == nil {
-			teamID = emp.TeamID
-		}
+	self, teamID, scopeErr := employeeScope(r)
+	if scopeErr != nil {
+		writeErr(w, 403, "员工档案或团队不存在")
+		return
 	}
-	if employeeID == nil && teamID == nil && role != "admin" && role != "hr" {
-		if emp, err := repo.GetEmployeeByUserID(r.Context(), uid); err == nil {
-			employeeID = &emp.ID
-		}
+	if self != nil {
+		employeeID = self
 	}
 
 	rows, err := repo.Pool.Query(r.Context(), `
@@ -416,13 +467,19 @@ func (h *apiHandler) listSalary(w http.ResponseWriter, r *http.Request) {
 		args = append(args, v)
 		return strconv.Itoa(len(args))
 	}
-	if role == "manager" {
+	if role == "manager" || role == "workplace_manager" {
 		if emp, err := repo.GetEmployeeByUserID(r.Context(), uid); err == nil && emp.TeamID != nil {
 			where = append(where, `e.team_id = $`+add(*emp.TeamID))
+		} else {
+			writeErr(w, 403, "员工档案或团队不存在")
+			return
 		}
 	} else if role == "employee" {
 		if emp, err := repo.GetEmployeeByUserID(r.Context(), uid); err == nil {
 			where = append(where, `sr.employee_id = $`+add(emp.ID))
+		} else {
+			writeErr(w, 403, "员工档案不存在")
+			return
 		}
 	}
 	if employeeID != nil {
@@ -495,12 +552,22 @@ func (h *apiHandler) calculateSalary(w http.ResponseWriter, r *http.Request) {
 	if body.Month == 0 {
 		body.Month = int(now.Month())
 	}
+	if !validPeriod(body.Year, body.Month) {
+		writeErr(w, 400, "年份或月份无效")
+		return
+	}
+	if !canAccessEmployee(w, r, body.EmployeeID) {
+		return
+	}
 	detail, level, err := service.CalculateSalary(r.Context(), body.EmployeeID, body.Year, body.Month)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "薪资计算失败: "+err.Error())
 		return
 	}
-	_, _ = service.SaveSalary(r.Context(), body.EmployeeID, body.Year, body.Month)
+	if _, err := service.SaveSalary(r.Context(), body.EmployeeID, body.Year, body.Month); err != nil {
+		dbError(w, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"employeeId":       body.EmployeeID,
 		"periodYear":       body.Year,
@@ -520,7 +587,7 @@ func (h *apiHandler) calculateBatch(w http.ResponseWriter, r *http.Request) {
 		Year  int `json:"periodYear"`
 		Month int `json:"periodMonth"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Year == 0 || body.Month == 0 {
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || !validPeriod(body.Year, body.Month) {
 		writeErr(w, http.StatusBadRequest, "缺少必要参数：periodYear/periodMonth")
 		return
 	}
@@ -532,6 +599,18 @@ func (h *apiHandler) calculateBatch(w http.ResponseWriter, r *http.Request) {
 	results := []map[string]any{}
 	failed := []map[string]string{}
 	for _, id := range ids {
+		_, role := mustUser(r.Context())
+		if hasRole(role, "manager", "workplace_manager") {
+			_, team, err := employeeScope(r)
+			if err != nil {
+				writeErr(w, 403, "员工档案或团队不存在")
+				return
+			}
+			target, err := repo.TeamIDOfEmployee(r.Context(), id)
+			if err != nil || target == nil || *target != *team {
+				continue
+			}
+		}
 		detail, err := service.SaveSalary(r.Context(), id, body.Year, body.Month)
 		if err != nil {
 			failed = append(failed, map[string]string{"employeeId": strconv.Itoa(id), "error": err.Error()})
@@ -550,7 +629,7 @@ func (h *apiHandler) calculateBatch(w http.ResponseWriter, r *http.Request) {
 func (h *apiHandler) getWorkdays(w http.ResponseWriter, r *http.Request) {
 	year, err1 := strconv.Atoi(chi.URLParam(r, "year"))
 	month, err2 := strconv.Atoi(chi.URLParam(r, "month"))
-	if err1 != nil || err2 != nil {
+	if err1 != nil || err2 != nil || !validPeriod(year, month) {
 		writeErr(w, http.StatusBadRequest, "无效的年月参数")
 		return
 	}
@@ -576,7 +655,7 @@ func (h *apiHandler) upsertWorkdays(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "请求参数错误")
 		return
 	}
-	if body.Year == 0 || body.Month == 0 || body.Workdays == nil {
+	if !validPeriod(body.Year, body.Month) || body.Workdays == nil {
 		writeErr(w, http.StatusBadRequest, "缺少必要参数")
 		return
 	}
@@ -584,11 +663,14 @@ func (h *apiHandler) upsertWorkdays(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "月份必须在1-12之间")
 		return
 	}
+	seen := map[int]bool{}
+	maxDay := time.Date(body.Year, time.Month(body.Month)+1, 0, 0, 0, 0, 0, time.UTC).Day()
 	for _, d := range body.Workdays {
-		if d < 1 || d > 31 {
-			writeErr(w, http.StatusBadRequest, "工作日必须在1-31之间")
+		if d < 1 || d > maxDay || seen[d] {
+			writeErr(w, http.StatusBadRequest, "工作日须为当月有效且不重复的日期")
 			return
 		}
+		seen[d] = true
 	}
 	wcfg, err := repo.UpsertWorkdayConfig(r.Context(), body.Year, body.Month, body.Workdays)
 	if err != nil {
@@ -601,7 +683,7 @@ func (h *apiHandler) upsertWorkdays(w http.ResponseWriter, r *http.Request) {
 // ---- level check（cron 触发器，对齐旧 trigger-level-check / check-level-transitions）----
 
 func (h *apiHandler) checkLevelTransitions(w http.ResponseWriter, r *http.Request) {
-	results, err := service.RunDailyLevelCheck(r.Context(), time.Now())
+	results, err := service.RunDailyLevelCheck(r.Context(), service.BusinessNow())
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "检查失败: "+err.Error())
 		return
@@ -617,6 +699,10 @@ func (h *apiHandler) triggerLevelCheck(w http.ResponseWriter, r *http.Request) {
 
 func (h *apiHandler) submitPerformance(w http.ResponseWriter, r *http.Request) {
 	uid, role := mustUser(r.Context())
+	if role == "employee" {
+		h.submitSelfOrder(w, r)
+		return
+	}
 	// 对齐旧通道权限：admin/hr/manager（employee 自录走 pending_approval 明细，此处对齐管理员分支）
 	if role != "admin" && role != "hr" && role != "manager" && role != "workplace_manager" {
 		writeErr(w, http.StatusForbidden, "无权限代录业绩（employee 请走自录通道）")
@@ -627,11 +713,18 @@ func (h *apiHandler) submitPerformance(w http.ResponseWriter, r *http.Request) {
 		WorkDate    string  `json:"workDate"`
 		ProductID   *int    `json:"productId,omitempty"`
 		Orders      int     `json:"orders"`
+		OrdersCount *int    `json:"ordersCount"`
 		SalesAmount float64 `json:"salesAmount,omitempty"`
 		WorkPeriod  string  `json:"workPeriod,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.EmployeeID == 0 || body.WorkDate == "" {
 		writeErr(w, http.StatusBadRequest, "缺少必要参数：employeeId/workDate/orders")
+		return
+	}
+	if body.OrdersCount != nil {
+		body.Orders = *body.OrdersCount
+	}
+	if !canAccessEmployee(w, r, body.EmployeeID) {
 		return
 	}
 	result, err := service.SubmitPerformance(r.Context(), service.SubmitPerformanceInput{
@@ -658,6 +751,14 @@ func (h *apiHandler) approveOrderDetail(w http.ResponseWriter, r *http.Request) 
 	detailID, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, "无效的明细ID")
+		return
+	}
+	detail, err := repo.GetOrderDetail(r.Context(), detailID)
+	if err != nil {
+		dbError(w, err)
+		return
+	}
+	if !canAccessEmployee(w, r, detail.EmployeeID) {
 		return
 	}
 	var body struct {

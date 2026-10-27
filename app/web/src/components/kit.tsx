@@ -1,285 +1,794 @@
-/**
- * 模板组件 —— DataTablePage / StatCard / FormDialog / AppShell
- * 23 个 CRUD 页面全部声明式套用，消除旧前端的巨型文件。
- * 组件用原生 CSS 变量 + 极简内联样式（不引第三方 UI 库——避免 shadcn 模板脸）。
- */
-import React, { useEffect, useState } from 'react';
-import { tokens as t, money } from '../lib/tokens';
-import { auth, setToken, ApiError } from '../lib/api';
+import React, { useEffect, useId, useRef, useState } from "react";
+import { money, LEVEL_ZH, STATUS_ZH } from "../lib/tokens";
+import { auth, setToken } from "../lib/api";
 
-// ---------- 基础原子 ----------
-
-export const Btn: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  kind?: 'primary' | 'ghost' | 'danger'
-}> = ({ kind = 'primary', style, ...rest }) => (
-  <button {...rest} style={{
-    font: `600 13px/1 ${t.type.family}`,
-    padding: '8px 14px', borderRadius: t.radius.sm, cursor: 'pointer',
-    border: kind === 'ghost' ? `1px solid ${t.color.line}` : '1px solid transparent',
-    background: kind === 'primary' ? t.color.accent : kind === 'danger' ? t.color.moneyOut : 'transparent',
-    color: kind === 'ghost' ? t.color.ink : '#fff',
-    opacity: rest.disabled ? 0.5 : 1,
-    ...style,
-  }} />
-);
-
-export const Field: React.FC<{ label: string } & React.InputHTMLAttributes<HTMLInputElement>> = ({ label, ...rest }) => (
-  <label style={{ display: 'block' }}>
-    <div style={{ font: `400 12px/1.5 ${t.type.family}`, color: t.color.inkSoft, marginBottom: 4 }}>{label}</div>
-    <input {...rest} style={{
-      width: '100%', boxSizing: 'border-box', font: `400 14px/1.4 ${t.type.family}`,
-      padding: '8px 10px', borderRadius: t.radius.sm, border: `1px solid ${t.color.line}`,
-      background: '#fff', color: t.color.ink, outline: 'none',
-    }} />
-  </label>
-);
-
-const StatusDot: React.FC<{ color: string; text: string }> = ({ color, text }) => (
-  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, font: `400 13px/1 ${t.type.family}` }}>
-    <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, display: 'inline-block' }} />
-    {text}
-  </span>
-);
-
-export function LevelBadge({ level }: { level: string }) {
-  const zh: Record<string, string> = { trainee: '实习生', c_level: 'C级', b_level: 'B级', a_level: 'A级', suggested_elimination: '建议淘汰', eliminated: '已淘汰' };
-  const color = level === 'a_level' ? t.color.moneyIn : level === 'b_level' ? t.color.accent
-    : level === 'c_level' ? t.color.warn : level === 'trainee' ? t.color.inkSoft : t.color.moneyOut;
-  return <StatusDot color={color} text={zh[level] ?? level} />;
+export function Icon({ name, size = 18 }: { name: string; size?: number }) {
+  const paths: Record<string, React.ReactNode> = {
+    dashboard: <path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z" />,
+    people: (
+      <>
+        <circle cx="9" cy="8" r="3" />
+        <path d="M3 21v-3a6 6 0 0 1 12 0v3M16 5a3 3 0 0 1 0 6M18 15a5 5 0 0 1 3 5" />
+      </>
+    ),
+    phone: (
+      <path d="M5 3h4l2 5-3 2a16 16 0 0 0 6 6l2-3 5 2v4c0 2-2 3-4 2A22 22 0 0 1 3 7c-1-2 0-4 2-4Z" />
+    ),
+    list: <path d="M8 5h13M8 12h13M8 19h13M3 5h.01M3 12h.01M3 19h.01" />,
+    calendar: (
+      <>
+        <rect x="3" y="5" width="18" height="16" rx="2" />
+        <path d="M7 3v4M17 3v4M3 11h18M7 15h2M13 15h2" />
+      </>
+    ),
+    money: (
+      <>
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <circle cx="12" cy="12" r="3" />
+        <path d="M6 9v6M18 9v6" />
+      </>
+    ),
+    box: <path d="m3 7 9-4 9 4v10l-9 4-9-4Zm0 0 9 4 9-4M12 11v10M7 5l10 4" />,
+    bell: <path d="M5 17h14l-2-4V9a5 5 0 0 0-10 0v4Zm5 3h4" />,
+    check: (
+      <>
+        <rect x="4" y="3" width="16" height="18" rx="2" />
+        <path d="m8 12 3 3 5-6" />
+      </>
+    ),
+    settings: (
+      <>
+        <path d="M4 7h16M4 17h16" />
+        <circle cx="9" cy="7" r="3" fill="currentColor" />
+        <circle cx="15" cy="17" r="3" fill="currentColor" />
+      </>
+    ),
+    shield: (
+      <>
+        <path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Z" />
+        <path d="m8 12 3 3 5-6" />
+      </>
+    ),
+    menu: <path d="M4 6h16M4 12h16M4 18h16" />,
+    close: <path d="m6 6 12 12M6 18 18 6" />,
+    logout: <path d="M10 4H4v16h6M10 12h11m-4-4 4 4-4 4" />,
+  };
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {paths[name] ?? paths.list}
+    </svg>
+  );
 }
-
-// ---------- StatCard：数字优先，钱用等宽强调 ----------
-
-export const StatCard: React.FC<{ label: string; value: React.ReactNode; money?: boolean }> = ({ label, value, money: isMoney }) => (
-  <div style={{
-    padding: '14px 18px', background: '#fff', borderRadius: t.radius.md,
-    border: `1px solid ${t.color.line}`, borderLeft: `3px solid ${t.color.ink}`,
-  }}>
-    <div style={{ font: `400 12px/1.4 ${t.type.family}`, color: t.color.inkSoft }}>{label}</div>
-    <div style={{
-      font: isMoney ? `650 22px/1.3 ${t.type.family}` : `700 22px/1.3 ${t.type.family}`,
-      color: t.color.ink, marginTop: 4, fontVariantNumeric: 'tabular-nums',
-    }}>{value}</div>
+export const Btn: React.FC<
+  React.ButtonHTMLAttributes<HTMLButtonElement> & {
+    kind?: "primary" | "ghost" | "danger";
+  }
+> = ({ kind = "primary", className = "", type = "button", ...rest }) => (
+  <button type={type} className={`btn btn--${kind} ${className}`} {...rest} />
+);
+export function Field({
+  label,
+  hint,
+  ...rest
+}: {
+  label: string;
+  hint?: string;
+} & React.InputHTMLAttributes<HTMLInputElement>) {
+  const id = useId();
+  return (
+    <label className="field" htmlFor={id}>
+      <span>{label}</span>
+      <input id={id} name={rest.name ?? label} autoComplete="off" {...rest} />
+      {hint && <small>{hint}</small>}
+    </label>
+  );
+}
+export function SelectField({
+  label,
+  children,
+  ...rest
+}: {
+  label: string;
+  children: React.ReactNode;
+} & React.SelectHTMLAttributes<HTMLSelectElement>) {
+  const id = useId();
+  return (
+    <label className="field" htmlFor={id}>
+      <span>{label}</span>
+      <select id={id} name={rest.name ?? label} {...rest}>
+        {children}
+      </select>
+    </label>
+  );
+}
+export function TextAreaField({
+  label,
+  ...rest
+}: { label: string } & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const id = useId();
+  return (
+    <label className="field" htmlFor={id}>
+      <span>{label}</span>
+      <textarea id={id} name={rest.name ?? label} rows={3} {...rest} />
+    </label>
+  );
+}
+export function Status({
+  value,
+  label,
+}: {
+  value: string | null | undefined;
+  label?: string;
+}) {
+  if (!value) return <span className="muted">—</span>;
+  const tone = [
+    "active",
+    "approved",
+    "confirmed",
+    "completed",
+    "converted",
+    "work",
+    "paid",
+  ].includes(value)
+    ? "good"
+    : [
+          "rejected",
+          "lost",
+          "cancelled",
+          "absent",
+          "inactive",
+          "suspended",
+        ].includes(value)
+      ? "bad"
+      : "neutral";
+  return (
+    <span className={`status status--${tone}`}>
+      {label ?? STATUS_ZH[value] ?? value}
+    </span>
+  );
+}
+export const LevelBadge = ({ level }: { level: string }) => (
+  <span className={`level level--${level}`}>{LEVEL_ZH[level] ?? level}</span>
+);
+export const MoneyCell = ({
+  v,
+  tone,
+}: {
+  v: number | string | null;
+  tone?: "in" | "out";
+}) => (
+  <span className={`money ${tone ? `money--${tone}` : ""}`}>{money(v)}</span>
+);
+export const StatCard = ({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+  money?: boolean;
+}) => (
+  <div className="stat">
+    <div className="muted">{label}</div>
+    <strong>{value}</strong>
   </div>
 );
-
-// ---------- DataTablePage：声明式列表页模板 ----------
-
+export function Alert({
+  children,
+  retry,
+  tone = "error",
+}: {
+  children: React.ReactNode;
+  retry?: () => void;
+  tone?: "error" | "success" | "info";
+}) {
+  return (
+    <div
+      className={`alert alert--${tone}`}
+      role={tone === "error" ? "alert" : "status"}
+    >
+      <span>{children}</span>
+      {retry && (
+        <Btn kind="ghost" onClick={retry}>
+          重试
+        </Btn>
+      )}
+    </div>
+  );
+}
 export interface Column<T> {
   key: string;
   title: string;
   render?: (row: T) => React.ReactNode;
-  align?: 'left' | 'right';
+  align?: "left" | "right";
 }
-
 export interface DataTablePageProps<T> {
   title: string;
-  fetchPage: (page: number, limit: number) => Promise<{ rows: T[]; total: number }>;
+  description?: string;
+  fetchPage: (
+    page: number,
+    limit: number,
+  ) => Promise<{ rows: T[]; total: number }>;
   columns: Column<T>[];
   rowKey: (row: T) => React.Key;
   toolbar?: React.ReactNode;
+  filters?: React.ReactNode;
   emptyText?: string;
+  refreshKey?: string | number;
 }
-
-export function DataTablePage<T>({ title, fetchPage, columns, rowKey, toolbar, emptyText = '暂无数据' }: DataTablePageProps<T>) {
+export function DataTablePage<T>({
+  title,
+  description,
+  fetchPage,
+  columns,
+  rowKey,
+  toolbar,
+  filters,
+  emptyText = "暂无记录。",
+  refreshKey,
+}: DataTablePageProps<T>) {
   const [rows, setRows] = useState<T[]>([]);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() =>
+    Math.max(1, Number(new URLSearchParams(location.search).get("page")) || 1),
+  );
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
+  const [err, setErr] = useState("");
+  const [retry, setRetry] = useState(0);
   const limit = 20;
-
   useEffect(() => {
     let live = true;
-    setLoading(true); setErr(null);
+    setLoading(true);
+    setErr("");
     fetchPage(page, limit)
-      .then(({ rows: r, total: tt }) => { if (live) { setRows(r); setTotal(tt); } })
-      .catch((e: ApiError) => { if (live) setErr(e.message); })
-      .finally(() => { if (live) setLoading(false); });
-    return () => { live = false; };
-  }, [page]);
-
-  const totalPages = Math.max(1, Math.ceil(total / limit));
-
+      .then((result) => {
+        if (!live) return;
+        if (page > 1 && result.total <= (page - 1) * limit) {
+          setPage(Math.max(1, Math.ceil(result.total / limit)));
+          return;
+        }
+        setRows(result.rows);
+        setTotal(result.total);
+      })
+      .catch((e: Error) => {
+        if (live) setErr(e.message);
+      })
+      .finally(() => {
+        if (live) setLoading(false);
+      });
+    return () => {
+      live = false;
+    };
+  }, [page, fetchPage, refreshKey, retry]);
+  const goPage = (p: number) => {
+    setPage(p);
+    const url = new URL(location.href);
+    url.searchParams.set("page", String(p));
+    history.replaceState(null, "", url);
+  };
   return (
-    <section>
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '0 0 14px' }}>
-        <h1 style={{ font: `600 18px/1.3 ${t.type.family}`, color: t.color.ink, margin: 0 }}>{title}</h1>
-        <div style={{ display: 'flex', gap: 8 }}>{toolbar}</div>
-      </header>
-
-      {err && <div style={{ padding: 12, background: '#FBEFEC', borderRadius: t.radius.sm, color: t.color.moneyOut, font: `400 13px/1.5 ${t.type.family}` }}>{err} —— 请刷新重试</div>}
-      {loading && <div style={{ padding: 24, color: t.color.inkSoft, font: `400 13px ${t.type.family}` }}>数据待抓取…</div>}
-
-      {!loading && !err && (
-        <div style={{ background: '#fff', border: `1px solid ${t.color.line}`, borderRadius: t.radius.md, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                {columns.map(c => (
-                  <th key={c.key} style={{
-                    font: `600 12px/1.4 ${t.type.family}`, color: t.color.inkSoft,
-                    textAlign: c.align ?? 'left', padding: '10px 14px',
-                    borderBottom: `1px solid ${t.color.line}`, background: t.color.paper,
-                  }}>{c.title}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 && (
-                <tr><td colSpan={columns.length} style={{ padding: 28, textAlign: 'center', color: t.color.inkSoft, font: `400 13px ${t.type.family}` }}>{emptyText}</td></tr>
-              )}
-              {rows.map(row => (
-                <tr key={rowKey(row)} style={{ borderBottom: `1px solid ${t.color.line}` }}>
-                  {columns.map(c => (
-                    <td key={c.key} style={{
-                      padding: '10px 14px', font: `400 13px/1.5 ${t.type.family}`, color: t.color.ink,
-                      textAlign: c.align ?? 'left', fontVariantNumeric: 'tabular-nums',
-                    }}>{c.render ? c.render(row) : (row as any)[c.key]}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <section aria-busy={loading}>
+      <header className="page-heading">
+        <div>
+          <h1>{title}</h1>
+          {description && <p>{description}</p>}
         </div>
+        <div className="actions">
+          {toolbar}
+          <Btn
+            kind="ghost"
+            onClick={() => setRetry((v) => v + 1)}
+            disabled={loading}
+          >
+            刷新
+          </Btn>
+        </div>
+      </header>
+      {filters && <div className="filters">{filters}</div>}
+      {err && (
+        <Alert retry={() => setRetry((v) => v + 1)}>
+          {err}，请重试或检查筛选条件。
+        </Alert>
       )}
-
-      {!loading && !err && total > limit && (
-        <nav style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end', marginTop: 12 }}
-             aria-label="分页">
-          <span style={{ font: `400 12px ${t.type.family}`, color: t.color.inkSoft }}>共 {total} 条</span>
-          <Btn kind="ghost" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>上一页</Btn>
-          <span style={{ font: `400 12px ${t.type.family}` }}>{page} / {totalPages}</span>
-          <Btn kind="ghost" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>下一页</Btn>
-        </nav>
+      {loading ? (
+        <div className="table-skeleton" role="status" aria-label="正在加载记录">
+          <span>正在加载…</span>
+          {[1, 2, 3, 4].map((n) => (
+            <div key={n} />
+          ))}
+        </div>
+      ) : (
+        !err && (
+          <>
+            <div
+              className="table-scroll"
+              tabIndex={0}
+              role="region"
+              aria-label={`${title}数据表`}
+            >
+              {rows.length === 0 ? (
+                <div className="empty">
+                  <Icon name="list" size={28} />
+                  <p>{emptyText}</p>
+                </div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      {columns.map((c) => (
+                        <th
+                          key={c.key}
+                          scope="col"
+                          className={c.align === "right" ? "number" : ""}
+                        >
+                          {c.title}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row) => (
+                      <tr key={rowKey(row)}>
+                        {columns.map((c) => (
+                          <td
+                            key={c.key}
+                            className={c.align === "right" ? "number" : ""}
+                          >
+                            {c.render
+                              ? c.render(row)
+                              : String(
+                                  (row as Record<string, unknown>)[c.key] ??
+                                    "—",
+                                )}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <nav className="pagination" aria-label="分页">
+              <span>共 {total.toLocaleString("zh-CN")} 条</span>
+              <div className="actions">
+                <Btn
+                  kind="ghost"
+                  disabled={page <= 1}
+                  onClick={() => goPage(page - 1)}
+                >
+                  上一页
+                </Btn>
+                <span>
+                  {page} / {Math.max(1, Math.ceil(total / limit))}
+                </span>
+                <Btn
+                  kind="ghost"
+                  disabled={page * limit >= total}
+                  onClick={() => goPage(page + 1)}
+                >
+                  下一页
+                </Btn>
+              </div>
+            </nav>
+          </>
+        )
       )}
     </section>
   );
 }
-
-// ---------- FormDialog ----------
-
-export const FormDialog: React.FC<{
-  open: boolean; title: string; onClose: () => void; onSubmit: () => Promise<void>;
-  submitText?: string; children: React.ReactNode;
-}> = ({ open, title, onClose, onSubmit, submitText = '保存', children }) => {
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  if (!open) return null;
-  return (
-    <div role="dialog" aria-modal="true" aria-label={title} onClick={onClose}
-         style={{ position: 'fixed', inset: 0, background: 'rgba(22,48,43,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-      <div onClick={e => e.stopPropagation()} style={{
-        width: 420, maxWidth: '92vw', background: '#fff', borderRadius: t.radius.md,
-        border: `1px solid ${t.color.line}`, padding: 24,
-      }}>
-        <h2 style={{ font: `600 16px/1.4 ${t.type.family}`, margin: '0 0 16px', color: t.color.ink }}>{title}</h2>
-        <div style={{ display: 'grid', gap: 12 }}>{children}</div>
-        {err && <div style={{ marginTop: 10, color: t.color.moneyOut, font: `400 13px ${t.type.family}` }}>{err}</div>}
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
-          <Btn kind="ghost" onClick={onClose}>取消</Btn>
-          <Btn disabled={busy} onClick={async () => {
-            setBusy(true); setErr(null);
-            try { await onSubmit(); onClose(); } catch (e) { setErr((e as ApiError).message); } finally { setBusy(false); }
-          }}>{busy ? '保存中…' : submitText}</Btn>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ---------- AppShell：左窄导航 ----------
-
-export interface NavItem { key: string; label: string; icon: string }
-export const AppShell: React.FC<{
-  nav: NavItem[]; active: string; onNav: (key: string) => void;
-  userName?: string | null; userRole?: string | null; onLogout: () => void;
+export function FormDialog({
+  open,
+  title,
+  onClose,
+  onSubmit,
+  submitText = "保存",
+  children,
+  dirty = false,
+}: {
+  open: boolean;
+  title: string;
+  onClose: () => void;
+  onSubmit: () => Promise<void>;
+  submitText?: string;
   children: React.ReactNode;
-}> = ({ nav, active, onNav, userName, userRole, onLogout, children }) => (
-  <div style={{ display: 'flex', minHeight: '100vh', background: t.color.paper }}>
-    <aside style={{
-      width: 200, flexShrink: 0, background: t.color.ink, color: '#E8EDEA',
-      display: 'flex', flexDirection: 'column', padding: '18px 0',
-    }}>
-      <div style={{ font: `700 15px/1.4 ${t.type.family}`, padding: '0 20px 18px', borderBottom: `1px solid rgba(255,255,255,.12)`, marginBottom: 10 }}>
-        呼叫中心<span style={{ color: '#7FB8A8' }}> 4.0</span>
-      </div>
-      {nav.map(n => (
-        <button key={n.key} onClick={() => onNav(n.key)} aria-current={active === n.key}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 10, padding: '11px 20px',
-            font: `500 13px/1 ${t.type.family}`, textAlign: 'left', cursor: 'pointer',
-            background: active === n.key ? 'rgba(255,255,255,.1)' : 'transparent',
-            color: active === n.key ? '#fff' : '#B9C8C3', border: 'none',
-            borderLeft: active === n.key ? `2px solid #7FB8A8` : '2px solid transparent',
-          }}>
-          <span aria-hidden style={{ fontSize: 14 }}>{n.icon}</span>{n.label}
-        </button>
-      ))}
-      <div style={{ marginTop: 'auto', padding: '14px 20px 0', borderTop: `1px solid rgba(255,255,255,.12)` }}>
-        <div style={{ font: `500 13px/1.4 ${t.type.family}`, color: '#fff' }}>{userName ?? '未登录'}</div>
-        <div style={{ font: `400 11px/1.6 ${t.type.family}`, color: '#7F948E', marginBottom: 8 }}>
-          {userRole === 'admin' ? '管理员' : userRole === 'manager' ? '团队经理' : userRole === 'finance' ? '财务' : userRole === 'employee' ? '销售' : userRole}
-        </div>
-        <button onClick={onLogout} style={{
-          font: `400 12px/1 ${t.type.family}`, color: '#B9C8C3', background: 'transparent',
-          border: 'none', cursor: 'pointer', padding: 0,
-        }}>退出登录</button>
-      </div>
-    </aside>
-    <main style={{ flex: 1, padding: 24, maxWidth: 1200, minWidth: 0 }}>{children}</main>
-  </div>
-);
-
-// ---------- LoginPage：话务台签名 ----------
-
-export const LoginPage: React.FC<{ onLogin: (name: string, role: string) => void }> = ({ onLogin }) => {
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
+  dirty?: boolean;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true); setErr(null);
-    try {
-      const res = await auth.login(phone, password);
-      setToken(res.session.access_token);
-      onLogin(res.user.name ?? '', res.user.role);
-    } catch (e2) { setErr((e2 as ApiError).message); } finally { setBusy(false); }
+  const [err, setErr] = useState("");
+  const [discard, setDiscard] = useState(false);
+  const titleID = useId();
+  useEffect(() => {
+    if (!open) return;
+    const dialog = ref.current;
+    const opener = document.activeElement as HTMLElement | null;
+    setErr("");
+    setDiscard(false);
+    dialog?.showModal();
+    dialog
+      ?.querySelector<HTMLElement>(
+        "input:not([disabled]),select:not([disabled]),textarea:not([disabled])",
+      )
+      ?.focus();
+    return () => {
+      dialog?.close();
+      if (opener?.isConnected) opener.focus();
+    };
+  }, [open]);
+  useEffect(() => {
+    if (!open || !dirty) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    addEventListener("beforeunload", warn);
+    return () => removeEventListener("beforeunload", warn);
+  }, [open, dirty]);
+  const close = () => {
+    if (busy) return;
+    if (dirty && !discard) {
+      setDiscard(true);
+      return;
+    }
+    onClose();
   };
-
   return (
-    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: t.color.ink }}>
-      <form onSubmit={submit} style={{
-        width: 360, maxWidth: '92vw', background: '#fff', borderRadius: t.radius.lg, padding: 32,
-        border: `1px solid ${t.color.line}`,
-      }}>
-        <div style={{ font: `700 22px/1.3 ${t.type.family}`, color: t.color.ink, marginBottom: 4 }}>
-          呼叫中心<span style={{ color: t.color.accent }}> 4.0</span>
-        </div>
-        <div style={{ font: `400 13px/1.6 ${t.type.family}`, color: t.color.inkSoft, marginBottom: 24 }}>
-          教育体验课电销管理台——线索、业绩、薪资，一个地方看全。
-        </div>
-        <div style={{ display: 'grid', gap: 14 }}>
-          <Field label="手机号" inputMode="tel" autoComplete="tel" required
-                 value={phone} onChange={e => setPhone(e.target.value)} placeholder="登录手机号" />
-          <Field label="密码" type="password" autoComplete="current-password" required
-                 value={password} onChange={e => setPassword(e.target.value)} placeholder="登录密码" />
-        </div>
-        {err && <div role="alert" style={{ marginTop: 12, color: t.color.moneyOut, font: `400 13px/1.5 ${t.type.family}` }}>{err}</div>}
-        <Btn type="submit" disabled={busy} style={{ width: '100%', marginTop: 20, padding: '11px 14px', fontSize: 14 }}>
-          {busy ? '登录中…' : '进入工作台'}
-        </Btn>
+    <dialog
+      ref={ref}
+      aria-labelledby={titleID}
+      className="dialog"
+      onCancel={(e) => {
+        e.preventDefault();
+        close();
+      }}
+      onClick={(e) => {
+        if (e.target === ref.current) close();
+      }}
+    >
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true);
+          setErr("");
+          try {
+            await onSubmit();
+            onClose();
+          } catch (e) {
+            setErr((e as Error).message);
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <header className="dialog-heading">
+          <h2 id={titleID}>{title}</h2>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="关闭弹窗"
+            onClick={close}
+            disabled={busy}
+          >
+            <Icon name="close" />
+          </button>
+        </header>
+        <div className="form-grid">{children}</div>
+        {err && <Alert>{err}</Alert>}
+        {discard && (
+          <Alert tone="info">
+            有尚未保存的内容。继续编辑，或选择放弃更改。
+          </Alert>
+        )}
+        <footer className="dialog-footer">
+          {discard ? (
+            <>
+              <Btn
+                kind="ghost"
+                disabled={busy}
+                onClick={() => setDiscard(false)}
+              >
+                继续编辑
+              </Btn>
+              <Btn kind="danger" disabled={busy} onClick={onClose}>
+                放弃更改
+              </Btn>
+            </>
+          ) : (
+            <Btn kind="ghost" onClick={close} disabled={busy}>
+              取消
+            </Btn>
+          )}
+          <Btn type="submit" disabled={busy}>
+            {busy ? "保存中…" : submitText}
+          </Btn>
+        </footer>
       </form>
+    </dialog>
+  );
+}
+export interface NavItem {
+  key: string;
+  label: string;
+  icon: string;
+  group?: string;
+}
+export function AppShell({
+  nav,
+  active,
+  onNav,
+  userName,
+  userRole,
+  onLogout,
+  children,
+}: {
+  nav: NavItem[];
+  active: string;
+  onNav: (key: string) => void;
+  userName?: string | null;
+  userRole?: string | null;
+  onLogout: () => void;
+  children: React.ReactNode;
+}) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const sidebar = useRef<HTMLElement>(null);
+  const workspace = useRef<HTMLDivElement>(null);
+  const current = nav.find((n) => n.key === active);
+  useEffect(() => {
+    setMobileOpen(false);
+    document.title = `${current?.label ?? "工作台"} · 呼叫中心 4.0`;
+  }, [active, current?.label]);
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const panel = sidebar.current;
+    const content = workspace.current;
+    const opener = document.activeElement as HTMLElement | null;
+    const oldOverflow = document.body.style.overflow;
+    if (content) content.inert = true;
+    document.body.style.overflow = "hidden";
+    const focusable = () =>
+      Array.from(
+        panel?.querySelectorAll<HTMLElement>(
+          "a[href],button:not([disabled])",
+        ) ?? [],
+      ).filter((el) => el.getClientRects().length > 0);
+    focusable()[0]?.focus();
+    const keys = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setMobileOpen(false);
+      }
+      if (e.key !== "Tab") return;
+      const items = focusable();
+      const first = items[0],
+        last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last?.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
+    };
+    const resized = () => {
+      if (matchMedia("(min-width: 761px)").matches) setMobileOpen(false);
+    };
+    addEventListener("keydown", keys);
+    addEventListener("resize", resized);
+    return () => {
+      if (content) content.inert = false;
+      document.body.style.overflow = oldOverflow;
+      removeEventListener("keydown", keys);
+      removeEventListener("resize", resized);
+      if (opener?.isConnected) opener.focus();
+    };
+  }, [mobileOpen]);
+  const groups = [...new Set(nav.map((n) => n.group ?? "工作台"))];
+  return (
+    <div className="app-shell">
+      <a className="skip-link" href="#main-content">
+        跳到主要内容
+      </a>
+      <aside
+        ref={sidebar}
+        className={`sidebar ${mobileOpen ? "sidebar--open" : ""}`}
+        id="app-navigation"
+        role={mobileOpen ? "dialog" : undefined}
+        aria-modal={mobileOpen || undefined}
+        aria-label="工作台导航"
+      >
+        <a
+          className="brand"
+          href="?view=dashboard"
+          onClick={(e) => {
+            if (e.metaKey || e.ctrlKey) return;
+            e.preventDefault();
+            onNav(nav[0]?.key ?? "profile");
+          }}
+        >
+          <Icon name="phone" size={21} />
+          <span>
+            呼叫中心 <b>4.0</b>
+          </span>
+        </a>
+        {mobileOpen && (
+          <button
+            className="icon-button mobile-nav-close"
+            aria-label="关闭导航"
+            onClick={() => setMobileOpen(false)}
+          >
+            <Icon name="close" />
+          </button>
+        )}
+        <nav className="side-nav" aria-label="业务导航">
+          {groups.map((group) => (
+            <div className="nav-group" key={group}>
+              <span className="nav-group-name">{group}</span>
+              {nav
+                .filter((n) => (n.group ?? "工作台") === group)
+                .map((n) => (
+                  <a
+                    href={`?view=${n.key}`}
+                    key={n.key}
+                    aria-current={active === n.key ? "page" : undefined}
+                    onClick={(e) => {
+                      if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+                      e.preventDefault();
+                      onNav(n.key);
+                    }}
+                  >
+                    <Icon name={n.icon} />
+                    <span>{n.label}</span>
+                  </a>
+                ))}
+            </div>
+          ))}
+        </nav>
+        <div className="sidebar-user">
+          <div className="avatar" aria-hidden="true">
+            {userName?.slice(-2) ?? "用户"}
+          </div>
+          <div>
+            <strong>{userName || "当前用户"}</strong>
+            <span>
+              {(
+                {
+                  admin: "管理员",
+                  manager: "团队经理",
+                  workplace_manager: "职场经理",
+                  hr: "人力",
+                  finance: "财务",
+                  employee: "销售",
+                } as Record<string, string>
+              )[userRole ?? ""] ?? userRole}
+            </span>
+          </div>
+          <button
+            className="icon-button"
+            onClick={onLogout}
+            aria-label="退出登录"
+          >
+            <Icon name="logout" />
+          </button>
+        </div>
+      </aside>
+      {mobileOpen && (
+        <button
+          className="nav-scrim"
+          aria-label="收起导航"
+          tabIndex={-1}
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+      <div className="workspace" ref={workspace}>
+        <header className="workspace-bar">
+          <button
+            className="icon-button mobile-menu"
+            aria-controls="app-navigation"
+            aria-expanded={mobileOpen}
+            aria-label={mobileOpen ? "收起导航" : "打开导航"}
+            onClick={() => setMobileOpen((v) => !v)}
+          >
+            <Icon name="menu" />
+          </button>
+          <span>运营工作台</span>
+          <span className="workspace-location">{current?.label}</span>
+          <span className="workspace-date">
+            {new Intl.DateTimeFormat("zh-CN", {
+              month: "long",
+              day: "numeric",
+              weekday: "long",
+            }).format(new Date())}
+          </span>
+        </header>
+        <main id="main-content" tabIndex={-1}>
+          {children}
+        </main>
+      </div>
     </div>
   );
-};
-
-// 金额单元格（等宽 + 绿色只给钱）
-export const MoneyCell: React.FC<{ v: number | string | null; tone?: 'in' | 'out' }> = ({ v, tone }) => (
-  <span style={{
-    color: tone === 'in' ? t.color.moneyIn : tone === 'out' ? t.color.moneyOut : t.color.ink,
-    fontWeight: 600,
-  }}>{money(v)}</span>
-);
+}
+export function LoginPage({
+  onLogin,
+}: {
+  onLogin: (name: string, role: string) => void;
+}) {
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  return (
+    <main className="login-page">
+      <section className="login-intro">
+        <div className="login-brand">
+          <Icon name="phone" size={28} />
+          呼叫中心 4.0
+        </div>
+        <h1>
+          从一条线索，
+          <br />
+          到每一笔业绩。
+        </h1>
+        <p>客户跟进、团队协作、业绩审核与薪资核算，回到同一个工作台。</p>
+        <div className="login-workflow">
+          <span>跟进客户</span>
+          <span>记录业绩</span>
+          <span>核对薪资</span>
+        </div>
+      </section>
+      <form
+        className="login-form"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true);
+          setErr("");
+          try {
+            const result = await auth.login(phone, password);
+            setToken(result.session.access_token);
+            onLogin(result.user.name ?? "", result.user.role);
+          } catch (e) {
+            setErr((e as Error).message);
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <h2>登录工作台</h2>
+        <p className="muted">使用分配给你的工作账号</p>
+        <Field
+          label="手机号"
+          name="phone"
+          type="tel"
+          autoComplete="username"
+          required
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="输入登录手机号…"
+        />
+        <Field
+          label="密码"
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="输入密码…"
+        />
+        {err && <Alert>{err}</Alert>}
+        <Btn type="submit" disabled={busy}>
+          {busy ? "登录中…" : "登录工作台"}
+        </Btn>
+        <p className="login-help">账号无法使用？请联系团队管理员。</p>
+      </form>
+    </main>
+  );
+}

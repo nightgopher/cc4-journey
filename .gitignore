@@ -1,3 +1,9 @@
 app/bin/
 node_modules/
 app/web/dist/
+.env
+.env.*
+!.env.example
+app/uploads/
+services/lead-source-mock/release/
+services/lead-source-mock/deploy/__pycache__/

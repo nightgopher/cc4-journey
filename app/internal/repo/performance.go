@@ -2,6 +2,10 @@ package repo
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"github.com/jackc/pgx/v5"
+	"sort"
 	"time"
 )
 
@@ -108,11 +112,11 @@ func ListPerformance(ctx context.Context, q PerformanceQuery) ([]DailyPerformanc
 // MonthlyOrderTotals 返回员工某月「工作日期 → 当日订单数」映射（薪资引擎输入）。
 func MonthlyOrderTotals(ctx context.Context, employeeID int, year, month int) (map[string]int, error) {
 	rows, err := Pool.Query(ctx, `
-		SELECT TO_CHAR(work_date, 'YYYY-MM-DD'), COALESCE(orders_count, 0)
+		SELECT TO_CHAR(work_date, 'YYYY-MM-DD'), COALESCE(SUM(orders_count), 0)
 		FROM daily_performance_records
 		WHERE employee_id = $1
 		  AND EXTRACT(YEAR FROM work_date) = $2
-		  AND EXTRACT(MONTH FROM work_date) = $3`, employeeID, year, month)
+		  AND EXTRACT(MONTH FROM work_date) = $3 GROUP BY work_date`, employeeID, year, month)
 	if err != nil {
 		return nil, err
 	}
@@ -132,6 +136,13 @@ func MonthlyOrderTotals(ctx context.Context, employeeID int, year, month int) (m
 // AttendanceDaysInMonth 统计员工某月出勤天数（业绩日期 ∩ 工作日配置，按去重日期）。
 // 注意：这与旧引擎按记录行数统计不同——按文档口径去重，D3 修复点。
 func AttendanceDaysInMonth(ctx context.Context, employeeID int, year, month int, workdays []int) (int, error) {
+	days, err := AttendanceUnitsInMonth(ctx, employeeID, year, month, workdays)
+	return int(days), err
+}
+
+// Explicit attendance (including leave/absence) overrides performance-derived presence.
+// Each date contributes at most one day, regardless of the number of products.
+func AttendanceUnitsInMonth(ctx context.Context, employeeID int, year, month int, workdays []int) (float64, error) {
 	if len(workdays) == 0 {
 		return 0, nil
 	}
@@ -140,23 +151,26 @@ func AttendanceDaysInMonth(ctx context.Context, employeeID int, year, month int,
 		wdSet[d] = true
 	}
 	rows, err := Pool.Query(ctx, `
-		SELECT DISTINCT EXTRACT(DAY FROM work_date)::int
-		FROM daily_performance_records
-		WHERE employee_id = $1
-		  AND EXTRACT(YEAR FROM work_date) = $2
-		  AND EXTRACT(MONTH FROM work_date) = $3`, employeeID, year, month)
+		SELECT EXTRACT(DAY FROM date)::int,
+		CASE WHEN status='absent' THEN 0 WHEN status='partial' THEN 0.5 WHEN status='work' THEN LEAST(1,GREATEST(0,COALESCE(attendance_days,1))) ELSE 0 END::float
+		FROM attendance_records WHERE employee_id=$1 AND EXTRACT(YEAR FROM date)=$2 AND EXTRACT(MONTH FROM date)=$3
+		UNION ALL
+		SELECT DISTINCT EXTRACT(DAY FROM d.work_date)::int,1::float FROM daily_performance_records d
+		WHERE d.employee_id=$1 AND EXTRACT(YEAR FROM d.work_date)=$2 AND EXTRACT(MONTH FROM d.work_date)=$3 AND COALESCE(d.orders_count,0)>0
+		AND NOT EXISTS(SELECT 1 FROM attendance_records a WHERE a.employee_id=d.employee_id AND a.date=d.work_date)`, employeeID, year, month)
 	if err != nil {
 		return 0, err
 	}
 	defer rows.Close()
-	days := 0
+	days := 0.0
 	for rows.Next() {
 		var d int
-		if err := rows.Scan(&d); err != nil {
+		var units float64
+		if err := rows.Scan(&d, &units); err != nil {
 			return 0, err
 		}
 		if wdSet[d] {
-			days++
+			days += units
 		}
 	}
 	return days, rows.Err()
@@ -167,21 +181,25 @@ func AttendanceDaysInMonth(ctx context.Context, employeeID int, year, month int,
 // WorkdaysUpTo 返回从 levelChangeDate（含）到 endDate（含）的工作日日期列表。
 // 缺月配置时按周一至周五缺省（对齐旧引擎 getWorkdaysInRange 行为）。
 func WorkdaysUpTo(ctx context.Context, levelChangeDate time.Time, endDate time.Time) ([]time.Time, error) {
-	var out []time.Time
-	start := levelChangeDate
+	out := []time.Time{}
+	start := time.Date(levelChangeDate.Year(), levelChangeDate.Month(), levelChangeDate.Day(), 0, 0, 0, 0, time.UTC)
+	endDate = time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 0, 0, 0, 0, time.UTC)
 	// 逐月取配置，缺月回退周一至周五。
 	cur := time.Date(start.Year(), start.Month(), 1, 0, 0, 0, 0, start.Location())
 	for !cur.After(endDate) {
 		y, m := cur.Year(), int(cur.Month())
-		monthDays, err := workdaysOfMonth(ctx, y, m)
+		monthDays, err := WorkdaysOfMonth(ctx, y, m)
 		if err != nil {
 			return nil, err
 		}
+		sort.Ints(monthDays)
+		seen := map[int]bool{}
 		for _, d := range monthDays {
 			day := time.Date(y, time.Month(m), d, 0, 0, 0, 0, start.Location())
-			if day.Before(start) || day.After(endDate) {
+			if seen[d] || day.Month() != time.Month(m) || day.Before(start) || day.After(endDate) {
 				continue
 			}
+			seen[d] = true
 			out = append(out, day)
 		}
 		cur = time.Date(y, time.Month(m)+1, 1, 0, 0, 0, 0, start.Location())
@@ -189,11 +207,14 @@ func WorkdaysUpTo(ctx context.Context, levelChangeDate time.Time, endDate time.T
 	return out, nil
 }
 
-func workdaysOfMonth(ctx context.Context, year, month int) ([]int, error) {
+func WorkdaysOfMonth(ctx context.Context, year, month int) ([]int, error) {
 	w, err := GetWorkdayConfig(ctx, year, month)
-	if err != nil {
+	if errors.Is(err, pgx.ErrNoRows) {
 		// 未配置：周一至周五缺省（对齐旧引擎）。
 		return defaultWorkdays(year, month), nil
+	}
+	if err != nil {
+		return nil, err
 	}
 	return w.Workdays, nil
 }
@@ -260,8 +281,16 @@ type SalaryRecord struct {
 
 // UpsertSalary 保存或更新某员工某月薪资（计算明细存 JSON 字符串，对齐旧表）。
 func UpsertSalary(ctx context.Context, s *SalaryRecord) (int, error) {
+	tx, err := Pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, fmt.Sprintf("salary-%d-%d", s.PeriodYear, s.PeriodMonth)); err != nil {
+		return 0, err
+	}
 	var id int
-	err := Pool.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		INSERT INTO salary_records (employee_id, period_year, period_month, base_salary,
 			commission_amount, bonus_amount, overtime_pay, deductions, net_salary,
 			payment_status, calculation_details)
@@ -270,11 +299,18 @@ func UpsertSalary(ctx context.Context, s *SalaryRecord) (int, error) {
 		DO UPDATE SET base_salary=$4, commission_amount=$5, bonus_amount=$6,
 			overtime_pay=$7, deductions=$8, net_salary=$9, calculation_details=$10,
 			updated_at=CURRENT_TIMESTAMP
+		WHERE COALESCE(salary_records.payment_status,'pending')!='paid'
 		RETURNING id`,
 		s.EmployeeID, s.PeriodYear, s.PeriodMonth, s.BaseSalary,
 		s.CommissionAmount, s.BonusAmount, s.OvertimePay, s.Deductions, s.NetSalary,
 		s.CalcDetails).Scan(&id)
-	return id, err
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, fmt.Errorf("已发放的薪资不能重新计算，请先撤销发放")
+	}
+	if err != nil {
+		return 0, err
+	}
+	return id, tx.Commit(ctx)
 }
 
 // ---- 审计（MCP 写操作与 API 共用）----

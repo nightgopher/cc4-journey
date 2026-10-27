@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -27,9 +28,11 @@ func main() {
 
 	// 数据库连接（查询类工具需要；失败则只读工具不可用但 dry-run 仍可工作——
 	// 简化处理：直接失败退出，部署时保证库可用）。
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s",
-		getenv("DB_USER", "root"), getenv("DB_PASSWORD", ""),
-		getenv("DB_HOST", "localhost"), getenv("DB_PORT", "5433"), getenv("DB_NAME", "callcenter_db"))
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		u := &url.URL{Scheme: "postgres", User: url.UserPassword(getenv("DB_USER", "root"), getenv("DB_PASSWORD", "")), Host: net.JoinHostPort(getenv("DB_HOST", "localhost"), getenv("DB_PORT", "5433")), Path: getenv("DB_NAME", "callcenter_db")}
+		dsn = u.String()
+	}
 	if err := repo.Connect(ctx, dsn); err != nil {
 		log.Fatalf("数据库连接失败: %v", err)
 	}

@@ -141,7 +141,7 @@ func levelCheck(ctx context.Context, _ *mcp.CallToolRequest, in LevelCheckIn) (*
 		return nil, LevelCheckOut{}, fmt.Errorf("live 模式需要 employeeId；或用 dry-run：提供 level + recentOrders")
 	}
 	// 真实模式：从库取员工与业绩窗口。
-	r, err := service.CheckLevelTransition(ctx, *in.EmployeeID, time.Now())
+	r, err := service.CheckLevelTransition(ctx, *in.EmployeeID, service.BusinessNow())
 	if err != nil {
 		return nil, LevelCheckOut{}, err
 	}

@@ -16,7 +16,7 @@
 | 01 需求澄清 | [journey/01-requirements-clarify.md](journey/01-requirements-clarify.md) | ✅ AI 向客户提问，客户逐条回答 |
 | 02 PRD | journey/02-prd.md | ⏳ 待开始 |
 | 03 技术设计 | journey/03-design.md | ⏳ 待开始 |
-| 04 开发 | `app/` 目录 | ⏳ 待开始 |
+| 04 开发 | [app/README.md](app/README.md)、[PROGRESS.md](PROGRESS.md) | ✅ Go 业务补全与 18 页 React 工作台，详见验证范围 |
 | 05 部署与验收 | journey/05-deployment.md | ⏳ 待开始 |
 
 > 演示规则：每个阶段产物**先独立成文、再进入下一阶段**，允许中途返工，返工过程同样留痕——这就是真实研发的样子。

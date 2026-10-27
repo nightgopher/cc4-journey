@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/nightgopher/cc4-journey/app/internal/domain"
 	"github.com/nightgopher/cc4-journey/app/internal/repo"
 )
 
@@ -41,41 +40,24 @@ type SubmitPerformanceResult struct {
 //   - products 表为空/无规则时：模型二提成为 0（旧 calculateCommissionByProduct 行为）
 //   - ON CONFLICT 累加（同一员工同日同产品多次录入合并）
 func SubmitPerformance(ctx context.Context, in SubmitPerformanceInput) (*SubmitPerformanceResult, error) {
-	if in.Orders <= 0 {
-		return nil, fmt.Errorf("orders 必须大于 0")
+	if in.Orders < 0 || in.Orders > 10000 {
+		return nil, fmt.Errorf("orders 须在 0–10000 之间")
 	}
 	if _, err := time.Parse("2006-01-02", in.WorkDate); err != nil {
 		return nil, fmt.Errorf("workDate 格式须为 YYYY-MM-DD")
 	}
-	if _, err := repo.GetEmployeeByID(ctx, in.EmployeeID); err != nil {
+	emp, err := repo.GetEmployeeByID(ctx, in.EmployeeID)
+	if err != nil {
 		return nil, fmt.Errorf("员工不存在: %w", err)
 	}
-
-	var commission float64
-	var salesAmount float64
-	if in.ProductID != nil {
-		// 模型二：产品分档 × 当日序号（对齐旧管理员分支）。
-		// 当日序号起点 = 该员工该日该产品已有订单数。
-		existing, err := repo.ProductOrdersOnDate(ctx, in.EmployeeID, in.WorkDate, *in.ProductID)
-		if err != nil {
-			return nil, err
-		}
-		perOrder, err := repo.ProductCommissionTiers(ctx, *in.ProductID)
-		if err != nil {
-			return nil, err
-		}
-		for i := 1; i <= in.Orders; i++ {
-			commission += float64(repo.CommissionForIndex(perOrder, existing+i))
-		}
-		price, err := repo.ProductPrice(ctx, *in.ProductID)
-		if err != nil {
-			return nil, err
-		}
-		salesAmount = price * float64(in.Orders)
-	} else {
-		// 模型一：日汇总公式。
-		commission = float64(domain.DailyCommission(in.Orders))
-		salesAmount = in.SalesAmount
+	if emp.Status != "active" {
+		return nil, fmt.Errorf("仅在职员工可录入业绩")
+	}
+	if in.WorkPeriod != "" && in.WorkPeriod != "morning" && in.WorkPeriod != "afternoon" && in.WorkPeriod != "full_day" {
+		return nil, fmt.Errorf("无效的 workPeriod")
+	}
+	if in.SalesAmount < 0 {
+		return nil, fmt.Errorf("salesAmount 不能为负数")
 	}
 
 	workPeriod := in.WorkPeriod
@@ -83,11 +65,11 @@ func SubmitPerformance(ctx context.Context, in SubmitPerformanceInput) (*SubmitP
 		workPeriod = "full_day"
 	}
 
-	rec, err := repo.UpsertDailyPerformance(ctx, &repo.DailyPerformanceUpsert{
+	rec, err := repo.RecordDailyOrders(ctx, &repo.DailyPerformanceUpsert{
 		EmployeeID: in.EmployeeID, WorkDate: in.WorkDate,
 		ProductID: in.ProductID, OrdersCount: in.Orders,
-		SalesAmount: salesAmount, CommissionAmount: commission,
-		WorkPeriod: workPeriod,
+		SalesAmount: in.SalesAmount,
+		WorkPeriod:  workPeriod,
 	})
 	if err != nil {
 		return nil, err
@@ -99,7 +81,7 @@ func SubmitPerformance(ctx context.Context, in SubmitPerformanceInput) (*SubmitP
 	}
 	repo.WriteAudit(ctx, channel, "performance_submit",
 		fmt.Sprintf("employee=%d date=%s orders=%d commission=%.2f by=%d",
-			in.EmployeeID, in.WorkDate, in.Orders, commission, in.SubmittedBy))
+			in.EmployeeID, in.WorkDate, in.Orders, rec.CommissionAmount, in.SubmittedBy))
 
 	return &SubmitPerformanceResult{
 		RecordID: rec.ID, EmployeeID: in.EmployeeID, WorkDate: in.WorkDate,

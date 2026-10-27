@@ -1,0 +1,11 @@
+{
+  "app/web/src/App.tsx": "41ff9f6bde04fd5511e46b3ba1463d0dd7c58cc4a179787ef960a4361f4cdf61",
+  "app/web/src/main.tsx": "f592547ec595974c25cc12d62d93a5331d4d4d0d2555ac361470a376468b2e4f",
+  "app/web/src/styles.css": "f141f90f1f51ce5978cb20635e0cefd2fe0827368b10546d6c22e97850de329b",
+  "app/web/src/components/kit.tsx": "dfca20f69bfcd97e44a6a2accb35cbbb8e905d442d1210264f32d7663df5ba22",
+  "app/web/src/lib/api.ts": "273b9f3273b451f74fc033e4d84456f231d5a427793a35e4127a7897873880ed",
+  "app/web/src/lib/tokens.ts": "1438a775d5d7209e17759f3b7638a9801b2e57c0c5a7ab671f9c471be838ac76",
+  "app/web/src/pages/shared.tsx": "edc3c0b992aa78bc3d0df04caec9f31c738cf317e93368884e6e4525827e0885",
+  "app/web/src/pages/business.tsx": "c1f190764272ada2b4073517a2574adbf624da490da803ef8c1dbccb70f4770a",
+  "app/web/src/pages/core.tsx": "90507022b93a1c141da78db9c683956f480a2110ae77a0cc2e8de9f4741f555a"
+}

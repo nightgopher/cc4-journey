@@ -1,0 +1,542 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-27T04:58:02Z",
+  "title": "Design System: 呼叫中心 4.0",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "操作蓝",
+        "tonalRamp": [
+          "oklch(15% 0.0620 265.7)",
+          "oklch(26% 0.1240 265.7)",
+          "oklch(37% 0.1757 265.7)",
+          "oklch(48% 0.2067 265.7)",
+          "oklch(59% 0.2067 265.7)",
+          "oklch(70% 0.1860 265.7)",
+          "oklch(82% 0.1240 265.7)",
+          "oklch(95% 0.0413 265.7)"
+        ]
+      },
+      "accent-hover": {
+        "role": "primary",
+        "displayName": "深操作蓝",
+        "tonalRamp": [
+          "oklch(15% 0.0570 265.4)",
+          "oklch(26% 0.1141 265.4)",
+          "oklch(37% 0.1616 265.4)",
+          "oklch(48% 0.1901 265.4)",
+          "oklch(59% 0.1901 265.4)",
+          "oklch(70% 0.1711 265.4)",
+          "oklch(82% 0.1141 265.4)",
+          "oklch(95% 0.0380 265.4)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "海军蓝",
+        "tonalRamp": [
+          "oklch(15% 0.0182 259.2)",
+          "oklch(26% 0.0364 259.2)",
+          "oklch(37% 0.0515 259.2)",
+          "oklch(48% 0.0606 259.2)",
+          "oklch(59% 0.0606 259.2)",
+          "oklch(70% 0.0546 259.2)",
+          "oklch(82% 0.0364 259.2)",
+          "oklch(95% 0.0121 259.2)"
+        ]
+      },
+      "ink-soft": {
+        "role": "neutral",
+        "displayName": "蓝灰",
+        "tonalRamp": [
+          "oklch(15% 0.0140 258.8)",
+          "oklch(26% 0.0280 258.8)",
+          "oklch(37% 0.0397 258.8)",
+          "oklch(48% 0.0467 258.8)",
+          "oklch(59% 0.0467 258.8)",
+          "oklch(70% 0.0420 258.8)",
+          "oklch(82% 0.0280 258.8)",
+          "oklch(95% 0.0093 258.8)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "冷白工作区",
+        "tonalRamp": [
+          "oklch(15% 0.0017 264.5)",
+          "oklch(26% 0.0034 264.5)",
+          "oklch(37% 0.0049 264.5)",
+          "oklch(48% 0.0057 264.5)",
+          "oklch(59% 0.0057 264.5)",
+          "oklch(70% 0.0052 264.5)",
+          "oklch(82% 0.0034 264.5)",
+          "oklch(95% 0.0011 264.5)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "纯白内容",
+        "tonalRamp": [
+          "oklch(15% 0.0000 0.0)",
+          "oklch(26% 0.0000 0.0)",
+          "oklch(37% 0.0000 0.0)",
+          "oklch(48% 0.0000 0.0)",
+          "oklch(59% 0.0000 0.0)",
+          "oklch(70% 0.0000 0.0)",
+          "oklch(82% 0.0000 0.0)",
+          "oklch(95% 0.0000 0.0)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "浅分隔线",
+        "tonalRamp": [
+          "oklch(15% 0.0047 257.2)",
+          "oklch(26% 0.0093 257.2)",
+          "oklch(37% 0.0132 257.2)",
+          "oklch(48% 0.0156 257.2)",
+          "oklch(59% 0.0156 257.2)",
+          "oklch(70% 0.0140 257.2)",
+          "oklch(82% 0.0093 257.2)",
+          "oklch(95% 0.0031 257.2)"
+        ]
+      },
+      "filter-surface": {
+        "role": "neutral",
+        "displayName": "筛选浅蓝",
+        "tonalRamp": [
+          "oklch(15% 0.0031 261.8)",
+          "oklch(26% 0.0062 261.8)",
+          "oklch(37% 0.0088 261.8)",
+          "oklch(48% 0.0103 261.8)",
+          "oklch(59% 0.0103 261.8)",
+          "oklch(70% 0.0093 261.8)",
+          "oklch(82% 0.0062 261.8)",
+          "oklch(95% 0.0021 261.8)"
+        ]
+      },
+      "table-heading": {
+        "role": "neutral",
+        "displayName": "表头冷白",
+        "tonalRamp": [
+          "oklch(15% 0.0021 268.5)",
+          "oklch(26% 0.0042 268.5)",
+          "oklch(37% 0.0059 268.5)",
+          "oklch(48% 0.0070 268.5)",
+          "oklch(59% 0.0070 268.5)",
+          "oklch(70% 0.0063 268.5)",
+          "oklch(82% 0.0042 268.5)",
+          "oklch(95% 0.0014 268.5)"
+        ]
+      },
+      "hover-surface": {
+        "role": "neutral",
+        "displayName": "操作浅蓝",
+        "tonalRamp": [
+          "oklch(15% 0.0038 266.7)",
+          "oklch(26% 0.0077 266.7)",
+          "oklch(37% 0.0109 266.7)",
+          "oklch(48% 0.0128 266.7)",
+          "oklch(59% 0.0128 266.7)",
+          "oklch(70% 0.0115 266.7)",
+          "oklch(82% 0.0077 266.7)",
+          "oklch(95% 0.0026 266.7)"
+        ]
+      },
+      "field-stroke": {
+        "role": "neutral",
+        "displayName": "控件描边",
+        "tonalRamp": [
+          "oklch(15% 0.0052 142.5)",
+          "oklch(26% 0.0104 142.5)",
+          "oklch(37% 0.0147 142.5)",
+          "oklch(48% 0.0173 142.5)",
+          "oklch(59% 0.0173 142.5)",
+          "oklch(70% 0.0156 142.5)",
+          "oklch(82% 0.0104 142.5)",
+          "oklch(95% 0.0035 142.5)"
+        ]
+      },
+      "ghost-hover-stroke": {
+        "role": "neutral",
+        "displayName": "次按钮悬停描边",
+        "tonalRamp": [
+          "oklch(15% 0.0121 262.9)",
+          "oklch(26% 0.0242 262.9)",
+          "oklch(37% 0.0342 262.9)",
+          "oklch(48% 0.0403 262.9)",
+          "oklch(59% 0.0403 262.9)",
+          "oklch(70% 0.0362 262.9)",
+          "oklch(82% 0.0242 262.9)",
+          "oklch(95% 0.0081 262.9)"
+        ]
+      },
+      "income": {
+        "role": "semantic",
+        "displayName": "入账绿",
+        "tonalRamp": [
+          "oklch(15% 0.0281 164.0)",
+          "oklch(26% 0.0562 164.0)",
+          "oklch(37% 0.0796 164.0)",
+          "oklch(48% 0.0937 164.0)",
+          "oklch(59% 0.0937 164.0)",
+          "oklch(70% 0.0843 164.0)",
+          "oklch(82% 0.0562 164.0)",
+          "oklch(95% 0.0187 164.0)"
+        ]
+      },
+      "outflow": {
+        "role": "semantic",
+        "displayName": "扣减红",
+        "tonalRamp": [
+          "oklch(15% 0.0432 25.6)",
+          "oklch(26% 0.0865 25.6)",
+          "oklch(37% 0.1225 25.6)",
+          "oklch(48% 0.1441 25.6)",
+          "oklch(59% 0.1441 25.6)",
+          "oklch(70% 0.1297 25.6)",
+          "oklch(82% 0.0865 25.6)",
+          "oklch(95% 0.0288 25.6)"
+        ]
+      },
+      "outflow-hover": {
+        "role": "semantic",
+        "displayName": "危险操作悬停",
+        "tonalRamp": [
+          "oklch(15% 0.0399 31.5)",
+          "oklch(26% 0.0797 31.5)",
+          "oklch(37% 0.1130 31.5)",
+          "oklch(48% 0.1329 31.5)",
+          "oklch(59% 0.1329 31.5)",
+          "oklch(70% 0.1196 31.5)",
+          "oklch(82% 0.0797 31.5)",
+          "oklch(95% 0.0266 31.5)"
+        ]
+      },
+      "status-neutral-surface": {
+        "role": "semantic",
+        "displayName": "中性状态浅底",
+        "tonalRamp": [
+          "oklch(15% 0.0029 125.7)",
+          "oklch(26% 0.0059 125.7)",
+          "oklch(37% 0.0083 125.7)",
+          "oklch(48% 0.0098 125.7)",
+          "oklch(59% 0.0098 125.7)",
+          "oklch(70% 0.0088 125.7)",
+          "oklch(82% 0.0059 125.7)",
+          "oklch(95% 0.0020 125.7)"
+        ]
+      },
+      "status-neutral-ink": {
+        "role": "semantic",
+        "displayName": "中性状态深字",
+        "tonalRamp": [
+          "oklch(15% 0.0086 165.8)",
+          "oklch(26% 0.0173 165.8)",
+          "oklch(37% 0.0245 165.8)",
+          "oklch(48% 0.0288 165.8)",
+          "oklch(59% 0.0288 165.8)",
+          "oklch(70% 0.0259 165.8)",
+          "oklch(82% 0.0173 165.8)",
+          "oklch(95% 0.0058 165.8)"
+        ]
+      },
+      "status-good-surface": {
+        "role": "semantic",
+        "displayName": "通过状态浅底",
+        "tonalRamp": [
+          "oklch(15% 0.0042 155.6)",
+          "oklch(26% 0.0084 155.6)",
+          "oklch(37% 0.0120 155.6)",
+          "oklch(48% 0.0141 155.6)",
+          "oklch(59% 0.0141 155.6)",
+          "oklch(70% 0.0127 155.6)",
+          "oklch(82% 0.0084 155.6)",
+          "oklch(95% 0.0028 155.6)"
+        ]
+      },
+      "status-good-ink": {
+        "role": "semantic",
+        "displayName": "通过状态深字",
+        "tonalRamp": [
+          "oklch(15% 0.0259 155.6)",
+          "oklch(26% 0.0518 155.6)",
+          "oklch(37% 0.0733 155.6)",
+          "oklch(48% 0.0863 155.6)",
+          "oklch(59% 0.0863 155.6)",
+          "oklch(70% 0.0776 155.6)",
+          "oklch(82% 0.0518 155.6)",
+          "oklch(95% 0.0173 155.6)"
+        ]
+      },
+      "status-bad-surface": {
+        "role": "semantic",
+        "displayName": "异常状态浅底",
+        "tonalRamp": [
+          "oklch(15% 0.0046 48.6)",
+          "oklch(26% 0.0092 48.6)",
+          "oklch(37% 0.0130 48.6)",
+          "oklch(48% 0.0153 48.6)",
+          "oklch(59% 0.0153 48.6)",
+          "oklch(70% 0.0138 48.6)",
+          "oklch(82% 0.0092 48.6)",
+          "oklch(95% 0.0031 48.6)"
+        ]
+      },
+      "status-bad-ink": {
+        "role": "semantic",
+        "displayName": "异常状态深字",
+        "tonalRamp": [
+          "oklch(15% 0.0372 33.2)",
+          "oklch(26% 0.0744 33.2)",
+          "oklch(37% 0.1054 33.2)",
+          "oklch(48% 0.1240 33.2)",
+          "oklch(59% 0.1240 33.2)",
+          "oklch(70% 0.1116 33.2)",
+          "oklch(82% 0.0744 33.2)",
+          "oklch(95% 0.0248 33.2)"
+        ]
+      },
+      "error-surface": {
+        "role": "semantic",
+        "displayName": "错误浅底",
+        "tonalRamp": [
+          "oklch(15% 0.0047 42.4)",
+          "oklch(26% 0.0094 42.4)",
+          "oklch(37% 0.0133 42.4)",
+          "oklch(48% 0.0156 42.4)",
+          "oklch(59% 0.0156 42.4)",
+          "oklch(70% 0.0141 42.4)",
+          "oklch(82% 0.0094 42.4)",
+          "oklch(95% 0.0031 42.4)"
+        ]
+      },
+      "error-ink": {
+        "role": "semantic",
+        "displayName": "错误深字",
+        "tonalRamp": [
+          "oklch(15% 0.0412 30.9)",
+          "oklch(26% 0.0823 30.9)",
+          "oklch(37% 0.1166 30.9)",
+          "oklch(48% 0.1372 30.9)",
+          "oklch(59% 0.1372 30.9)",
+          "oklch(70% 0.1235 30.9)",
+          "oklch(82% 0.0823 30.9)",
+          "oklch(95% 0.0274 30.9)"
+        ]
+      },
+      "nav-label": {
+        "role": "neutral",
+        "displayName": "导航浅字",
+        "tonalRamp": [
+          "oklch(15% 0.0072 262.1)",
+          "oklch(26% 0.0145 262.1)",
+          "oklch(37% 0.0205 262.1)",
+          "oklch(48% 0.0241 262.1)",
+          "oklch(59% 0.0241 262.1)",
+          "oklch(70% 0.0217 262.1)",
+          "oklch(82% 0.0145 262.1)",
+          "oklch(95% 0.0048 262.1)"
+        ]
+      },
+      "nav-group": {
+        "role": "neutral",
+        "displayName": "导航分组灰蓝",
+        "tonalRamp": [
+          "oklch(15% 0.0129 259.6)",
+          "oklch(26% 0.0258 259.6)",
+          "oklch(37% 0.0365 259.6)",
+          "oklch(48% 0.0429 259.6)",
+          "oklch(59% 0.0429 259.6)",
+          "oklch(70% 0.0386 259.6)",
+          "oklch(82% 0.0258 259.6)",
+          "oklch(95% 0.0086 259.6)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "业务标题",
+        "purpose": "业务页面 h1。"
+      },
+      "title": {
+        "displayName": "区域标题",
+        "purpose": "面板与弹窗 h2。"
+      },
+      "body": {
+        "displayName": "正文",
+        "purpose": "连续阅读与原生控件输入。"
+      },
+      "label": {
+        "displayName": "字段与控制",
+        "purpose": "字段标签；同尺寸的按钮和导航使用各自字重。"
+      },
+      "caption": {
+        "displayName": "辅助说明",
+        "purpose": "状态、表头和次级说明的尺寸基准。"
+      },
+      "metric": {
+        "displayName": "摘要数值",
+        "purpose": "经营摘要，窄屏降至 1.4rem，使用 tabular-nums。"
+      }
+    },
+    "shadows": [
+      {
+        "name": "dialog",
+        "value": "0 18px 60px #10251e40",
+        "purpose": "短任务 modal dialog。"
+      },
+      {
+        "name": "notice",
+        "value": "0 6px 26px #13302526",
+        "purpose": "固定保存或错误反馈。"
+      }
+    ],
+    "motion": [
+      {
+        "name": "control-color",
+        "value": "background-color 160ms ease-out, color 160ms ease-out, border-color 160ms ease-out",
+        "purpose": "按钮和链接状态反馈；不编排入场。"
+      },
+      {
+        "name": "reduced-motion",
+        "value": "animation: none; transition: none; scroll-behavior: auto",
+        "purpose": "prefers-reduced-motion: reduce 时全局覆盖。"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact-desktop",
+        "value": "1100px"
+      },
+      {
+        "name": "mobile",
+        "value": "760px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "主要按钮",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "明确命名的业务动作；可见焦点与短暂颜色反馈。",
+      "html": "<button type=\"button\" class=\"ds-button ds-button-primary\">保存</button>",
+      "css": ".ds-button-primary{font-family:var(--f,-apple-system,\"PingFang SC\",\"Microsoft YaHei\",\"Segoe UI\",sans-serif);min-height:36px;padding:7px 13px;border-radius:6px;border:1px solid transparent;font-size:13px;font-weight:600;line-height:1.6;display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;cursor:pointer;transition:background-color 160ms ease-out,color 160ms ease-out,border-color 160ms ease-out;background:var(--accent,#315ce0);color:#fff;}.ds-button-primary:hover:not(:disabled){background:#2147bd;}.ds-button-primary:focus-visible{outline:2px solid var(--accent,#315ce0);outline-offset:3px;}.ds-button-primary:disabled{opacity:.5;cursor:default;}@media(max-width:760px){.ds-button-primary{min-height:44px;}}@media(prefers-reduced-motion:reduce){.ds-button{transition:none;}}"
+    },
+    {
+      "name": "次按钮",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "明确命名的业务动作；可见焦点与短暂颜色反馈。",
+      "html": "<button type=\"button\" class=\"ds-button ds-button-ghost\">取消</button>",
+      "css": ".ds-button-ghost{font-family:var(--f,-apple-system,\"PingFang SC\",\"Microsoft YaHei\",\"Segoe UI\",sans-serif);min-height:36px;padding:7px 13px;border-radius:6px;border:1px solid transparent;font-size:13px;font-weight:600;line-height:1.6;display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;cursor:pointer;transition:background-color 160ms ease-out,color 160ms ease-out,border-color 160ms ease-out;background:#fff;color:var(--ink,#182b49);border-color:var(--line,#dce3ed);}.ds-button-ghost:hover:not(:disabled){background:#eef2fb;border-color:#aab8d2;}.ds-button-ghost:focus-visible{outline:2px solid var(--accent,#315ce0);outline-offset:3px;}.ds-button-ghost:disabled{opacity:.5;cursor:default;}@media(max-width:760px){.ds-button-ghost{min-height:44px;}}@media(prefers-reduced-motion:reduce){.ds-button{transition:none;}}"
+    },
+    {
+      "name": "危险按钮",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "沿用常规高度与窄屏触摸高度；危险操作仅用于明确破坏性动作。",
+      "html": "<button type=\"button\" class=\"ds-button ds-button-danger\">放弃更改</button>",
+      "css": ".ds-button-danger{font-family:var(--f,-apple-system,\"PingFang SC\",\"Microsoft YaHei\",\"Segoe UI\",sans-serif);min-height:36px;padding:7px 13px;border-radius:6px;border:1px solid transparent;font-size:13px;font-weight:600;line-height:1.6;display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;cursor:pointer;transition:background-color 160ms ease-out,color 160ms ease-out,border-color 160ms ease-out;background:var(--out,#b64843);color:#fff;}.ds-button-danger:hover:not(:disabled){background:#8f2f20;}.ds-button-danger:focus-visible{outline:2px solid var(--accent,#315ce0);outline-offset:3px;}.ds-button-danger:disabled{opacity:.5;cursor:default;}@media(max-width:760px){.ds-button-danger{min-height:44px;}}@media(prefers-reduced-motion:reduce){.ds-button{transition:none;}}"
+    },
+    {
+      "name": "原生输入字段",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "可见标签、原生输入语义与独立焦点环。",
+      "html": "<label class=\"ds-field\" for=\"ds-customer\"><span>客户名称</span><input id=\"ds-customer\" name=\"customer_name\" type=\"text\" autocomplete=\"off\" value=\"示例客户\"></label>",
+      "css": ".ds-field{display:grid;gap:5px;min-width:0;font-family:var(--f,-apple-system,\"PingFang SC\",\"Microsoft YaHei\",\"Segoe UI\",sans-serif);}.ds-field span{color:var(--ink-soft,#53647e);font-size:13px;font-weight:500;line-height:1.6;}.ds-field input{font-family:var(--f,-apple-system,\"PingFang SC\",\"Microsoft YaHei\",\"Segoe UI\",sans-serif);width:100%;min-width:0;min-height:38px;padding:8px 10px;border:1px solid #a9b2a8;border-radius:5px;background:#fff;color:var(--ink,#182b49);font-size:14px;line-height:1.6;caret-color:var(--accent,#315ce0);}.ds-field:focus-within span{color:var(--accent,#315ce0);}.ds-field input:focus-visible{outline:2px solid var(--accent,#315ce0);outline-offset:3px;}"
+    },
+    {
+      "name": "业务导航",
+      "kind": "nav",
+      "refersTo": "navigation-active",
+      "description": "海军蓝底、线性 SVG 与蓝底白字活动项；实际目标和活动语义保留。",
+      "html": "<nav class=\"ds-nav\" aria-label=\"示例业务导航\"><span class=\"ds-nav-group\">经营</span><a href=\"#dashboard\" aria-current=\"page\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z\"/></svg>经营概览</a><a href=\"#customers\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"9\" cy=\"8\" r=\"3\"/><path d=\"M3 21v-3a6 6 0 0 1 12 0v3M16 5a3 3 0 0 1 0 6M18 15a5 5 0 0 1 3 5\"/></svg>客户管理</a></nav>",
+      "css": ".ds-nav{font-family:var(--f,-apple-system,\"PingFang SC\",\"Microsoft YaHei\",\"Segoe UI\",sans-serif);background:var(--ink,#182b49);padding:12px;width:220px;}.ds-nav-group{display:block;padding:4px 10px 7px;color:#a8b9d4;font-size:11px;line-height:1.6;}.ds-nav a{display:flex;align-items:center;gap:11px;padding:9px 11px;margin-bottom:3px;border-radius:6px;color:#d0d9e9;text-decoration:none;font-size:13px;line-height:1.6;transition:background-color 160ms ease-out,color 160ms ease-out,border-color 160ms ease-out;}.ds-nav a:hover{background:#ffffff0f;color:#fff;}.ds-nav a[aria-current=\"page\"]{background:var(--accent,#315ce0);color:#fff;font-weight:600;}.ds-nav a:focus-visible{outline:2px solid var(--accent,#315ce0);outline-offset:3px;}@media(prefers-reduced-motion:reduce){.ds-nav a{transition:none;}}"
+    },
+    {
+      "name": "中文状态标签",
+      "kind": "chip",
+      "refersTo": "status-neutral",
+      "description": "中性、通过和异常都保留文字，不仅依靠颜色。",
+      "html": "<div class=\"ds-status-list\"><span class=\"ds-status ds-status-neutral\">待处理</span><span class=\"ds-status ds-status-good\">已通过</span><span class=\"ds-status ds-status-bad\">已驳回</span></div>",
+      "css": ".ds-status-list{display:flex;flex-wrap:wrap;gap:8px;}.ds-status{font-family:var(--f,-apple-system,\"PingFang SC\",\"Microsoft YaHei\",\"Segoe UI\",sans-serif);display:inline-block;padding:2px 7px;border-radius:4px;font-size:12px;line-height:1.6;font-weight:500;}.ds-status-neutral{background:#ecefe8;color:#42564d;}.ds-status-good{background:#e9f3ec;color:#24623f;}.ds-status-bad{background:#faeee8;color:#963d2b;}"
+    },
+    {
+      "name": "常规内容面板",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "以白底、细线和间距划分内容，常态没有投影。",
+      "html": "<section class=\"ds-panel\" aria-labelledby=\"ds-panel-title\"><h2 id=\"ds-panel-title\">团队出勤</h2><p>按团队核对出勤记录。</p></section>",
+      "css": ".ds-panel{font-family:var(--f,-apple-system,\"PingFang SC\",\"Microsoft YaHei\",\"Segoe UI\",sans-serif);background:#fff;color:var(--ink,#182b49);border:1px solid var(--line,#dce3ed);border-radius:10px;padding:20px;min-width:0;}.ds-panel h2{margin:0 0 16px;font-size:16.8px;font-weight:600;line-height:1.6;}.ds-panel p{margin:0;color:var(--ink-soft,#53647e);font-size:14px;line-height:1.6;}@media(max-width:760px){.ds-panel{padding:16px;}}"
+    },
+    {
+      "name": "七日日期条",
+      "kind": "custom",
+      "refersTo": "day",
+      "description": "七列时间索引；线上点日期更新当天，日期输入才改变七日区间。此处为静态状态示例。",
+      "html": "<div class=\"ds-days\" aria-label=\"示例七日日期\"><button type=\"button\" aria-pressed=\"false\"><span>周二</span><strong>10/20</strong><small>— 单</small></button><button type=\"button\" aria-pressed=\"false\"><span>周三</span><strong>10/21</strong><small>— 单</small></button><button type=\"button\" aria-pressed=\"false\"><span>周四</span><strong>10/22</strong><small>— 单</small></button><button type=\"button\" aria-pressed=\"false\"><span>周五</span><strong>10/23</strong><small>— 单</small></button><button type=\"button\" aria-pressed=\"false\"><span>周六</span><strong>10/24</strong><small>— 单</small></button><button type=\"button\" aria-pressed=\"false\"><span>周日</span><strong>10/25</strong><small>— 单</small></button><button type=\"button\" aria-pressed=\"true\"><span>周一</span><strong>10/26</strong><small>— 单</small></button></div>",
+      "css": ".ds-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;}.ds-days button{font-family:var(--f,-apple-system,\"PingFang SC\",\"Microsoft YaHei\",\"Segoe UI\",sans-serif);display:grid;gap:6px;justify-items:start;padding:12px 16px;text-align:left;background:#fff;border:1px solid var(--line,#dce3ed);border-radius:7px;color:var(--ink,#182b49);line-height:1.6;cursor:pointer;transition:background-color 160ms ease-out,color 160ms ease-out,border-color 160ms ease-out;}.ds-days button:hover{border-color:var(--accent,#315ce0);}.ds-days button[aria-pressed=\"true\"]{background:var(--accent,#315ce0);border-color:var(--accent,#315ce0);color:#fff;}.ds-days button:focus-visible{outline:2px solid var(--accent,#315ce0);outline-offset:3px;}.ds-days span,.ds-days small{font-size:11px;color:inherit;}.ds-days strong{font-size:15px;font-weight:600;}.ds-days small{opacity:.9;}@media(max-width:760px){.ds-days{gap:5px;}.ds-days button{padding:9px 5px;gap:4px;justify-items:center;}.ds-days strong{font-size:12px;}.ds-days small,.ds-days span{font-size:10px;}}@media(prefers-reduced-motion:reduce){.ds-days button{transition:none;}}"
+    },
+    {
+      "name": "业务数据表",
+      "kind": "custom",
+      "refersTo": "table-heading",
+      "description": "语义表格、独立横向滚动、行分隔与右对齐数值。",
+      "html": "<div class=\"ds-table-scroll\" role=\"region\" aria-label=\"示例订单表\" tabindex=\"0\"><table class=\"ds-table\"><thead><tr><th scope=\"col\">日期</th><th scope=\"col\">状态</th><th scope=\"col\" class=\"ds-number\">订单数</th></tr></thead><tbody><tr><td>示例日期</td><td>待处理</td><td class=\"ds-number\">—</td></tr></tbody></table></div>",
+      "css": ".ds-table-scroll{overflow:auto;border:1px solid var(--line,#dce3ed);border-radius:8px;background:#fff;}.ds-table-scroll:focus-visible{outline:2px solid var(--accent,#315ce0);outline-offset:3px;}.ds-table{font-family:var(--f,-apple-system,\"PingFang SC\",\"Microsoft YaHei\",\"Segoe UI\",sans-serif);width:100%;border-collapse:collapse;white-space:nowrap;color:var(--ink,#182b49);font-size:13px;line-height:1.6;}.ds-table th{padding:11px 16px;text-align:left;color:var(--ink-soft,#53647e);font-size:12px;font-weight:600;background:#f4f6fb;border-bottom:1px solid var(--line,#dce3ed);}.ds-table td{padding:13px 16px;border-bottom:1px solid #e8eae3;}.ds-table td:first-child{font-weight:500;}.ds-table tbody tr:last-child td{border-bottom:0;}.ds-table tbody tr:hover{background:#f7f9ff;}.ds-table .ds-number{text-align:right;font-variant-numeric:tabular-nums;}"
+    },
+    {
+      "name": "短任务弹窗",
+      "kind": "custom",
+      "refersTo": "dialog",
+      "description": "静态外观示例；线上使用 showModal、初始焦点、恢复焦点、未保存保护与可滚动内容。",
+      "html": "<dialog open class=\"ds-dialog\" aria-labelledby=\"ds-dialog-title\"><form method=\"dialog\" class=\"ds-dialog-form\"><header class=\"ds-dialog-heading\"><h2 id=\"ds-dialog-title\">编辑记录</h2><button type=\"submit\" class=\"ds-dialog-close\" aria-label=\"关闭弹窗\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m6 6 12 12M6 18 18 6\"/></svg></button></header><div class=\"ds-dialog-content\"><p>这里显示带标签的业务表单。</p></div><footer class=\"ds-dialog-footer\"><button type=\"submit\" class=\"ds-dialog-cancel\">取消</button><button type=\"submit\" class=\"ds-dialog-save\">保存</button></footer></form></dialog>",
+      "css": ".ds-dialog{font-family:var(--f,-apple-system,\"PingFang SC\",\"Microsoft YaHei\",\"Segoe UI\",sans-serif);position:relative;margin:0;border:0;padding:0;width:560px;max-width:100%;max-height:90dvh;border-radius:12px;box-shadow:0 18px 60px #10251e40;color:var(--ink,#182b49);background:#fff;overscroll-behavior:contain;}.ds-dialog::backdrop{background:#132a2459;}.ds-dialog-form{padding:24px;display:flex;flex-direction:column;max-height:90dvh;}.ds-dialog-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px;flex-shrink:0;}.ds-dialog-heading h2{margin:0;font-size:16.8px;font-weight:600;line-height:1.6;}.ds-dialog-close{border:0;background:transparent;color:inherit;width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;}.ds-dialog-close:hover{background:#16302b10;}.ds-dialog-content{min-height:0;overflow-y:auto;font-size:14px;line-height:1.6;}.ds-dialog-content p{margin:0;}.ds-dialog-footer{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:24px;padding-top:16px;border-top:1px solid var(--line,#dce3ed);flex-shrink:0;}.ds-dialog-cancel,.ds-dialog-save{font-family:var(--f,-apple-system,\"PingFang SC\",\"Microsoft YaHei\",\"Segoe UI\",sans-serif);min-height:36px;padding:7px 13px;border-radius:6px;border:1px solid transparent;font-size:13px;font-weight:600;line-height:1.6;display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;cursor:pointer;transition:background-color 160ms ease-out,color 160ms ease-out,border-color 160ms ease-out;}.ds-dialog-cancel{background:#fff;color:var(--ink,#182b49);border-color:var(--line,#dce3ed);}.ds-dialog-cancel:hover{background:#eef2fb;border-color:#aab8d2;}.ds-dialog-save{background:var(--accent,#315ce0);color:#fff;}.ds-dialog-save:hover{background:#2147bd;}.ds-dialog button:focus-visible{outline:2px solid var(--accent,#315ce0);outline-offset:3px;}@media(max-width:760px){.ds-dialog-form{padding:20px;}.ds-dialog-footer button,.ds-dialog-close{min-height:44px;}.ds-dialog-close{min-width:44px;}}@media(prefers-reduced-motion:reduce){.ds-dialog button{transition:none;}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "教务周计划",
+    "overview": "以教务周计划的清楚分区与日期节奏组织教育电销工作。海军蓝导航提供稳定归属，冷白工作区承载列表、表单与对比数据，蓝色承担操作和当前选择。界面紧凑、克制，适合在办公屏幕上连续核对与录入。\n\n“教务周计划”提供色彩、密度与可操作七日日期条这一处特征。业务页面继续使用熟悉的标题、筛选、表格与操作顺序；中文系统字体、等宽数字和原生控件优先保障辨认、输入与键盘操作。",
+    "keyCharacteristics": [
+      "海军蓝导航、白色内容容器与冷白工作区。",
+      "紧凑中文信息层级，金额与数量采用等宽数字。",
+      "稳定业务表格、原生表单与有未保存保护的短任务弹窗。",
+      "七日日期条保持区间，日期输入负责改变区间。"
+    ],
+    "rules": [
+      {
+        "name": "The Semantic Color Rule",
+        "body": "业务状态必须同时给出中文文字；绿色和红色只表达业务语义，蓝色表达操作与选择。",
+        "section": "colors"
+      },
+      {
+        "name": "The Numeric Alignment Rule",
+        "body": "可比较的金额与数量启用 tabular-nums；表格数值列右对齐，金额不换行。",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Workspace Rule",
+        "body": "常规工作区、筛选和数据容器保持平面；仅弹窗与固定反馈使用外投影。",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** 复用主色、海军蓝文字、冷白底与现有语义状态；新增状态同时写明中文含义。",
+      "**Do** 保持页面标题、筛选、数据和分页的稳定阅读顺序，并让表格容器独立横向滚动。",
+      "**Do** 为金额和数量保留等宽数字、数值列右对齐及清楚的单位。",
+      "**Do** 使用带可见标签的原生控件、可见焦点、中文加载与可重试错误。",
+      "**Do** 在窄屏检查弹窗内容滚动和底部操作可达，并保留未保存退出保护。"
+    ],
+    "donts": [
+      "**Don't** 用颜色单独区分审批、启用或财务状态。",
+      "**Don't** 在切换业务日期后用上一请求的结果充当新日期数据。",
+      "**Don't** 把密集表格变成页面级横向溢出，或为了手机布局隐藏关键业务列。",
+      "**Don't** 给常规列表、筛选和摘要叠加装饰投影、入场动画或无关图像。",
+      "**Don't** 把登录宣传标题的尺寸、未使用的备用令牌或旧版被覆盖的样式推广为新页面规范。"
+    ]
+  }
+}

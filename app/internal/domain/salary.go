@@ -132,3 +132,14 @@ func ASalary(attendanceDays, totalWorkdays, monthlyOrders int) (baseSalary, full
 		AFullAttendanceBonus(attendanceDays),
 		APerformanceBonus(monthlyOrders)
 }
+
+// ABaseSalaryForUnits retains the whole-yuan floor while accepting half-day attendance.
+func ABaseSalaryForUnits(attendance float64, totalWorkdays int) int {
+	if attendance <= 0 || totalWorkdays <= 0 {
+		return 0
+	}
+	if attendance > float64(totalWorkdays) {
+		attendance = float64(totalWorkdays)
+	}
+	return int(float64(ABaseSalary) * attendance / float64(totalWorkdays))
+}

@@ -3,8 +3,12 @@ package repo
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/nightgopher/cc4-journey/app/internal/domain"
 )
 
 // ---- 产品提成规则（模型二依赖）----
@@ -24,8 +28,8 @@ func ProductOrdersOnDate(ctx context.Context, employeeID int, workDate string, p
 		SELECT COALESCE(orders_count, 0) FROM daily_performance_records
 		WHERE employee_id = $1 AND work_date = $2 AND product_id = $3`,
 		employeeID, workDate, productID).Scan(&n)
-	if err != nil {
-		return 0, nil // 无当日记录 → 序号从 1 开始
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, nil
 	}
 	return n, nil
 }
@@ -72,26 +76,81 @@ type DailyPerformanceUpsert struct {
 // UpsertDailyPerformance 对齐旧 ON CONFLICT 累加语义：
 // 同一员工同日同产品再次录入时，订单/销售额/提成做加法合并。
 func UpsertDailyPerformance(ctx context.Context, u *DailyPerformanceUpsert) (*DailyPerformance, error) {
-	row := Pool.QueryRow(ctx, `
-		INSERT INTO daily_performance_records
-			(employee_id, work_date, product_id, orders_count, sales_amount, commission_amount, work_period)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		ON CONFLICT (employee_id, work_date, product_id)
-		DO UPDATE SET
-			orders_count = daily_performance_records.orders_count + EXCLUDED.orders_count,
-			sales_amount = daily_performance_records.sales_amount + EXCLUDED.sales_amount,
-			commission_amount = daily_performance_records.commission_amount + EXCLUDED.commission_amount,
-			work_period = EXCLUDED.work_period,
-			updated_at = CURRENT_TIMESTAMP
-		RETURNING id, employee_id, TO_CHAR(work_date, 'YYYY-MM-DD'),
-			orders_count, sales_amount, commission_amount`,
-		u.EmployeeID, u.WorkDate, u.ProductID, u.OrdersCount,
-		u.SalesAmount, u.CommissionAmount, u.WorkPeriod)
+	return accumulatePerformance(ctx, u, false)
+}
 
-	var d DailyPerformance
-	err := row.Scan(&d.ID, &d.EmployeeID, &d.WorkDate,
-		&d.OrdersCount, &d.SalesAmount, &d.CommissionAmount)
+// RecordDailyOrders serializes the ordinal calculation and write for one employee/day/product.
+// IS NOT DISTINCT FROM also merges the legacy model where product_id is NULL.
+func RecordDailyOrders(ctx context.Context, u *DailyPerformanceUpsert) (*DailyPerformance, error) {
+	return accumulatePerformance(ctx, u, true)
+}
+
+func lockPerformance(ctx context.Context, tx pgx.Tx, employeeID int, date string, productID *int) error {
+	product := 0
+	if productID != nil {
+		product = *productID
+	}
+	_, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, fmt.Sprintf("performance:%d:%s:%d", employeeID, date, product))
+	return err
+}
+
+func accumulatePerformance(ctx context.Context, u *DailyPerformanceUpsert, calculate bool) (*DailyPerformance, error) {
+	tx, err := Pool.Begin(ctx)
 	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	if err = lockPerformance(ctx, tx, u.EmployeeID, u.WorkDate, u.ProductID); err != nil {
+		return nil, err
+	}
+	var id, existing int
+	err = tx.QueryRow(ctx, `SELECT id,COALESCE(orders_count,0) FROM daily_performance_records WHERE employee_id=$1 AND work_date=$2 AND product_id IS NOT DISTINCT FROM $3::int ORDER BY id LIMIT 1 FOR UPDATE`, u.EmployeeID, u.WorkDate, u.ProductID).Scan(&id, &existing)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
+	}
+	if calculate {
+		if u.ProductID == nil {
+			u.CommissionAmount = float64(domain.DailyCommission(existing+u.OrdersCount) - domain.DailyCommission(existing))
+		} else {
+			var raw []byte
+			var price float64
+			if err = tx.QueryRow(ctx, `SELECT COALESCE(commission_rules,'null'::jsonb),price FROM products WHERE id=$1 AND status='active'`, *u.ProductID).Scan(&raw, &price); err != nil {
+				return nil, err
+			}
+			var rules struct {
+				Tiers []CommissionTier `json:"tiers"`
+			}
+			if err = json.Unmarshal(raw, &rules); err != nil {
+				return nil, err
+			}
+			u.CommissionAmount = 0
+			for n := 1; n <= u.OrdersCount; n++ {
+				u.CommissionAmount += float64(CommissionForIndex(rules.Tiers, existing+n))
+			}
+			u.SalesAmount = price * float64(u.OrdersCount)
+		}
+	}
+	if u.WorkPeriod == "" {
+		u.WorkPeriod = "full_day"
+	}
+	var row pgx.Row
+	const returning = ` RETURNING id,employee_id,TO_CHAR(work_date,'YYYY-MM-DD'),COALESCE(orders_count,0),COALESCE(sales_amount,0),COALESCE(commission_amount,0),product_id`
+	if id == 0 {
+		row = tx.QueryRow(ctx, `INSERT INTO daily_performance_records(employee_id,work_date,product_id,orders_count,sales_amount,commission_amount,work_period) VALUES($1,$2,$3,$4,$5,$6,$7)`+returning, u.EmployeeID, u.WorkDate, u.ProductID, u.OrdersCount, u.SalesAmount, u.CommissionAmount, u.WorkPeriod)
+	} else {
+		row = tx.QueryRow(ctx, `UPDATE daily_performance_records SET orders_count=COALESCE(orders_count,0)+$2,sales_amount=COALESCE(sales_amount,0)+$3,commission_amount=COALESCE(commission_amount,0)+$4,work_period=$5,updated_at=CURRENT_TIMESTAMP WHERE id=$1`+returning, id, u.OrdersCount, u.SalesAmount, u.CommissionAmount, u.WorkPeriod)
+	}
+	var d DailyPerformance
+	if err = row.Scan(&d.ID, &d.EmployeeID, &d.WorkDate, &d.OrdersCount, &d.SalesAmount, &d.CommissionAmount, &d.ProductID); err != nil {
+		return nil, err
+	}
+	if err = syncDailyFinance(ctx, tx, &d); err != nil {
+		return nil, err
+	}
+	if err = syncPerformanceAttendance(ctx, tx, u.EmployeeID, u.WorkDate, u.WorkPeriod); err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 	return &d, nil
@@ -126,6 +185,9 @@ func GetOrderDetail(ctx context.Context, detailID int) (*OrderDetailStatus, erro
 // CommissionForIndex 模型二：按订单序号匹配产品档位。
 // from<=idx<=to 或 to=null 无上限；未匹配 → 0 元（对齐旧 calculateCommissionByProduct）。
 func CommissionForIndex(tiers []CommissionTier, index int) int {
+	if index < 1 {
+		return 0
+	}
 	for _, t := range tiers {
 		if index >= t.From && (t.To == nil || index <= *t.To) {
 			return t.Amount
@@ -169,6 +231,9 @@ func ApproveOrderDetail(ctx context.Context, detailID int, approved bool, reject
 	if status != "pending_approval" {
 		return nil, fmt.Errorf("该明细已处理（当前状态 %s），不可重复审核", status)
 	}
+	if err = lockPerformance(ctx, tx, empID, workDate.Format("2006-01-02"), productID); err != nil {
+		return nil, err
+	}
 
 	newStatus := "rejected"
 	if approved {
@@ -181,16 +246,16 @@ func ApproveOrderDetail(ctx context.Context, detailID int, approved bool, reject
 		// 操作者身份由 agent_tool_audit 留痕。
 		_, err = tx.Exec(ctx, `
 			UPDATE daily_performance_order_details
-			SET approval_status = $2, approved_at = CURRENT_TIMESTAMP
-			WHERE id = $1`, detailID, newStatus)
+			SET approval_status = $2, approved_at = CURRENT_TIMESTAMP,approved_by=NULLIF($3,0),updated_at=CURRENT_TIMESTAMP
+			WHERE id = $1`, detailID, newStatus, approverEmployeeID)
 	} else {
 		if rejectionReason == "" {
 			return nil, fmt.Errorf("驳回必须填写原因")
 		}
 		_, err = tx.Exec(ctx, `
 			UPDATE daily_performance_order_details
-			SET approval_status = $2, rejection_reason = $3, approved_at = CURRENT_TIMESTAMP
-			WHERE id = $1`, detailID, newStatus, rejectionReason)
+			SET approval_status = $2, rejection_reason = $3, approved_at = CURRENT_TIMESTAMP,approved_by=NULLIF($4,0),updated_at=CURRENT_TIMESTAMP
+			WHERE id = $1`, detailID, newStatus, rejectionReason, approverEmployeeID)
 	}
 	if err != nil {
 		return nil, err
@@ -204,25 +269,29 @@ func ApproveOrderDetail(ctx context.Context, detailID int, approved bool, reject
 	// 3. 通过时：汇总行 +1 单 + 提成（模型二按当日序号）。
 	if approved {
 		var existing int
-		_ = tx.QueryRow(ctx, `
+		err = tx.QueryRow(ctx, `
 			SELECT COALESCE(orders_count, 0) FROM daily_performance_records
-			WHERE id = $1`, perfID).Scan(&existing)
+			WHERE id = $1 FOR UPDATE`, perfID).Scan(&existing)
+		if err != nil {
+			return nil, err
+		}
 
 		var commission float64
 		var price float64
 		if productID != nil {
-			tiers, err := ProductCommissionTiers(ctx, *productID)
-			if err != nil {
+			var raw []byte
+			if err = tx.QueryRow(ctx, `SELECT COALESCE(commission_rules,'null'::jsonb),price FROM products WHERE id=$1`, *productID).Scan(&raw, &price); err != nil {
 				return nil, err
 			}
-			// 序号按明细维度：当天该产品已审核单数 + 1（对齐旧 calculateOrderCommission）。
-			var approvedToday int
-			_ = tx.QueryRow(ctx, `
-				SELECT COUNT(*) FROM daily_performance_order_details
-				WHERE employee_id = $1 AND work_date = $2 AND product_id = $3 AND approval_status = 'approved'`,
-				empID, workDate.Format("2006-01-02"), *productID).Scan(&approvedToday)
-			commission = float64(CommissionForIndex(tiers, approvedToday+1))
-			_ = tx.QueryRow(ctx, `SELECT price FROM products WHERE id = $1`, *productID).Scan(&price)
+			var rules struct {
+				Tiers []CommissionTier `json:"tiers"`
+			}
+			if err = json.Unmarshal(raw, &rules); err != nil {
+				return nil, err
+			}
+			commission = float64(CommissionForIndex(rules.Tiers, existing+1))
+		} else {
+			commission = float64(domain.DailyCommission(existing+1) - domain.DailyCommission(existing))
 		}
 
 		if _, err = tx.Exec(ctx, `
@@ -237,16 +306,29 @@ func ApproveOrderDetail(ctx context.Context, detailID int, approved bool, reject
 		result.CommissionAmount = commission
 		result.OrdersCount = existing + 1
 		result.SalesAmount = price
+		var d DailyPerformance
+		if err = tx.QueryRow(ctx, `SELECT id,employee_id,TO_CHAR(work_date,'YYYY-MM-DD'),orders_count,sales_amount,commission_amount,product_id FROM daily_performance_records WHERE id=$1`, perfID).Scan(&d.ID, &d.EmployeeID, &d.WorkDate, &d.OrdersCount, &d.SalesAmount, &d.CommissionAmount, &d.ProductID); err != nil {
+			return nil, err
+		}
+		if err = syncDailyFinance(ctx, tx, &d); err != nil {
+			return nil, err
+		}
+		if err = syncPerformanceAttendance(ctx, tx, empID, d.WorkDate, ""); err != nil {
+			return nil, err
+		}
 	}
 
 	// 4. 通知（对齐旧 notifyPerformanceApproved；notifications.user_id 关联 users；
 	//    失败不阻塞主流程，与旧代码的容错一致）。
-	_, _ = tx.Exec(ctx, `
+	_, err = tx.Exec(ctx, `
 		INSERT INTO notifications (user_id, title, message, type)
-		SELECT e.user_id, $2, $3, 'info' FROM employees e WHERE e.id = $1`,
+		SELECT e.user_id, $2, $3, 'info' FROM employees e WHERE e.id = $1 AND e.user_id IS NOT NULL`,
 		empID,
 		map[bool]string{true: "业绩审核通过", false: "业绩被驳回"}[approved],
 		map[bool]string{true: "您提交的业绩已审核通过", false: "业绩被驳回：" + rejectionReason}[approved])
+	if err != nil {
+		return nil, err
+	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err

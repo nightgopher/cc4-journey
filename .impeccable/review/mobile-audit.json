@@ -1,0 +1,110 @@
+[
+  {
+    "page": "经营概览",
+    "heading": "经营概览",
+    "overflow": false,
+    "alerts": []
+  },
+  {
+    "page": "线索管理",
+    "heading": "线索管理",
+    "overflow": false,
+    "alerts": []
+  },
+  {
+    "page": "微信线索",
+    "heading": "微信线索",
+    "overflow": false,
+    "alerts": []
+  },
+  {
+    "page": "客户管理",
+    "heading": "客户管理",
+    "overflow": false,
+    "alerts": []
+  },
+  {
+    "page": "每日业绩",
+    "heading": "每日业绩",
+    "overflow": false,
+    "alerts": []
+  },
+  {
+    "page": "月度业绩",
+    "heading": "月度业绩",
+    "overflow": false,
+    "alerts": []
+  },
+  {
+    "page": "产品管理",
+    "heading": "产品管理",
+    "overflow": false,
+    "alerts": []
+  },
+  {
+    "page": "员工管理",
+    "heading": "员工管理",
+    "overflow": false,
+    "alerts": []
+  },
+  {
+    "page": "团队管理",
+    "heading": "团队管理",
+    "overflow": false,
+    "alerts": []
+  },
+  {
+    "page": "考勤管理",
+    "heading": "考勤管理",
+    "overflow": false,
+    "alerts": []
+  },
+  {
+    "page": "审批管理",
+    "heading": "订单审核",
+    "overflow": false,
+    "alerts": []
+  },
+  {
+    "page": "薪资管理",
+    "heading": "薪资管理",
+    "overflow": false,
+    "alerts": []
+  },
+  {
+    "page": "财务管理",
+    "heading": "收入管理",
+    "overflow": false,
+    "alerts": []
+  },
+  {
+    "page": "工作日配置",
+    "heading": "工作日配置",
+    "overflow": false,
+    "alerts": []
+  },
+  {
+    "page": "通知中心",
+    "heading": "通知中心",
+    "overflow": false,
+    "alerts": []
+  },
+  {
+    "page": "系统设置",
+    "heading": "系统设置",
+    "overflow": false,
+    "alerts": []
+  },
+  {
+    "page": "职位权限",
+    "heading": "职位权限",
+    "overflow": false,
+    "alerts": []
+  },
+  {
+    "page": "个人中心",
+    "heading": "个人中心",
+    "overflow": false,
+    "alerts": []
+  }
+]

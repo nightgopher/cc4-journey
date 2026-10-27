@@ -2,13 +2,19 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/nightgopher/cc4-journey/app/internal/api"
 	"github.com/nightgopher/cc4-journey/app/internal/repo"
+	"github.com/nightgopher/cc4-journey/app/internal/service"
 )
 
 // 与存量 docker-compose 默认值一致的环境变量约定：
@@ -16,7 +22,7 @@ import (
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "3001"
+		port = "3101"
 	}
 	host := os.Getenv("HOST")
 	if host == "" {
@@ -28,19 +34,36 @@ func main() {
 	dbUser := getenv("DB_USER", "root")
 	dbPass := getenv("DB_PASSWORD", "")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	dsn := "postgres://" + dbUser + ":" + dbPass + "@" + dbHost + ":" + dbPort + "/" + dbName
-	if err := repo.Connect(ctx, dsn); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	connectCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		u := &url.URL{Scheme: "postgres", User: url.UserPassword(dbUser, dbPass), Host: net.JoinHostPort(dbHost, dbPort), Path: dbName}
+		dsn = u.String()
+	}
+	if err := repo.Connect(connectCtx, dsn); err != nil {
 		log.Fatalf("数据库连接失败: %v", err)
 	}
+	cancel()
 	defer repo.Close()
+	service.StartScheduler(ctx)
 
 	handler := api.Router(jwtSecret())
 	addr := host + ":" + port
 	log.Printf("[cc4-go] listening on %s (db=%s:%s/%s)", addr, dbHost, dbPort, dbName)
-	srv := &http.Server{Addr: addr, Handler: handler, ReadHeaderTimeout: 5 * time.Second}
-	log.Fatal(srv.ListenAndServe())
+	srv := &http.Server{Addr: addr, Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 90 * time.Second, IdleTimeout: 60 * time.Second}
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			log.Printf("shutdown: %v", err)
+		}
+	}()
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Fatal(err)
+	}
 }
 
 func getenv(k, def string) string {

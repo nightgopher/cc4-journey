@@ -36,6 +36,7 @@ const employeeCols = `id, user_id, employee_code, name, phone, email, department
 
 // EmployeeListParams 对齐旧 GET /api/v1/employees 的查询参数与权限过滤。
 type EmployeeListParams struct {
+	EmployeeID *int
 	Search     string
 	Department string
 	Level      string
@@ -55,25 +56,28 @@ func ListEmployees(ctx context.Context, p EmployeeListParams) ([]Employee, int, 
 	}
 	if p.Search != "" {
 		n := add("%" + p.Search + "%")
-		where = append(where, `(name ILIKE $`+n+` OR employee_code ILIKE $`+n+`)`)
+		where = append(where, `(e.name ILIKE $`+n+` OR e.employee_code ILIKE $`+n+`)`)
 	}
 	if p.Department != "" {
-		where = append(where, `department = $`+add(p.Department))
+		where = append(where, `e.department = $`+add(p.Department))
 	}
 	if p.Level != "" {
-		where = append(where, `level = $`+add(p.Level))
+		where = append(where, `e.level = $`+add(p.Level))
 	}
 	if p.Status != "" {
-		where = append(where, `status = $`+add(p.Status))
+		where = append(where, `e.status = $`+add(p.Status))
 	}
 	if p.TeamID != nil {
-		where = append(where, `team_id = $`+add(*p.TeamID))
+		where = append(where, `e.team_id = $`+add(*p.TeamID))
+	}
+	if p.EmployeeID != nil {
+		where = append(where, `e.id=$`+add(*p.EmployeeID))
 	}
 	whereSQL := "WHERE " + joinAnd(where)
 
 	var total int
 	if err := Pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM employees `+whereSQL, args...).Scan(&total); err != nil {
+		`SELECT COUNT(*) FROM employees e `+whereSQL, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 

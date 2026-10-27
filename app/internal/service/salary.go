@@ -92,14 +92,14 @@ func cSalary(ctx context.Context, employeeID, year, month int) (SalaryDetail, er
 		hist = &repo.LevelHistory{ChangeDate: *emp.JoinDate}
 	}
 
-	monthEnd := time.Date(year, time.Month(month+1), 0, 0, 0, 0, 0, time.Local)
+	monthEnd := time.Date(year, time.Month(month+1), 0, 0, 0, 0, 0, time.UTC)
 	workdays, err := repo.WorkdaysUpTo(ctx, hist.ChangeDate, monthEnd)
 	if err != nil {
 		return SalaryDetail{}, err
 	}
 
 	// 截至上月底的 C 级工作日数（额度扣减项）。
-	monthStart := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.Local)
+	monthStart := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
 	before := 0
 	inMonth := 0
 	for _, d := range workdays {
@@ -129,12 +129,12 @@ func bSalary(ctx context.Context, employeeID, year, month int) (SalaryDetail, er
 		return SalaryDetail{}, fmt.Errorf("无B级晋升记录: %w", err)
 	}
 
-	monthEnd := time.Date(year, time.Month(month+1), 0, 0, 0, 0, 0, time.Local)
+	monthEnd := time.Date(year, time.Month(month+1), 0, 0, 0, 0, 0, time.UTC)
 	workdays, err := repo.WorkdaysUpTo(ctx, hist.ChangeDate, monthEnd)
 	if err != nil {
 		return SalaryDetail{}, err
 	}
-	monthStart := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.Local)
+	monthStart := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
 	before, inMonth := 0, 0
 	for _, d := range workdays {
 		if d.Before(monthStart) {
@@ -158,19 +158,14 @@ func bSalary(ctx context.Context, employeeID, year, month int) (SalaryDetail, er
 
 // aSalary：A 级 = 底薪比例 + 全勤奖 + 绩效 + 提成。
 func aSalary(ctx context.Context, employeeID, year, month int) (SalaryDetail, error) {
-	// 工作日配置；缺省 22（对齐旧引擎 total_workdays 默认值）。
-	totalWorkdays := 22
-	var workdays []int
-	if w, err := repo.GetWorkdayConfig(ctx, year, month); err == nil {
-		workdays = w.Workdays
-		totalWorkdays = w.TotalWorkdays
-		if totalWorkdays == 0 {
-			totalWorkdays = len(workdays)
-		}
+	workdays, err := repo.WorkdaysOfMonth(ctx, year, month)
+	if err != nil {
+		return SalaryDetail{}, err
 	}
+	totalWorkdays := len(workdays)
 
 	// D3 修复：按去重日期统计出勤（旧引擎按记录行数，同日多产品会重复计）。
-	attendance, err := repo.AttendanceDaysInMonth(ctx, employeeID, year, month, workdays)
+	attendance, err := repo.AttendanceUnitsInMonth(ctx, employeeID, year, month, workdays)
 	if err != nil {
 		return SalaryDetail{}, err
 	}
@@ -196,7 +191,9 @@ func aSalary(ctx context.Context, employeeID, year, month int) (SalaryDetail, er
 		return SalaryDetail{}, err
 	}
 
-	base, full, perf := domain.ASalary(attendance, totalWorkdays, monthlyOrders)
+	base := domain.ABaseSalaryForUnits(attendance, totalWorkdays)
+	full := domain.AFullAttendanceBonus(int(attendance))
+	perf := domain.APerformanceBonus(monthlyOrders)
 	bonus := float64(full + perf)
 	net := float64(base) + bonus + commission
 	return SalaryDetail{
@@ -286,6 +283,13 @@ func workdaysSince(ctx context.Context, employeeID int, toLevel string, today ti
 
 // SaveSalary 计算并持久化薪资记录（对齐旧 POST /salary/calculate 落库行为）。
 func SaveSalary(ctx context.Context, employeeID, year, month int) (*SalaryDetail, error) {
+	var paid bool
+	if err := repo.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM salary_records WHERE employee_id=$1 AND period_year=$2 AND period_month=$3 AND payment_status='paid')`, employeeID, year, month).Scan(&paid); err != nil {
+		return nil, err
+	}
+	if paid {
+		return nil, fmt.Errorf("已发放的薪资不能重新计算，请先撤销发放")
+	}
 	detail, level, err := CalculateSalary(ctx, employeeID, year, month)
 	if err != nil {
 		return nil, err
