@@ -1,0 +1,38 @@
+# 在自己的演示环境使用；兼容支持 .http 请求文件的客户端。
+# token为管理员登录后的session.access_token；手工设置或使用自己的客户端私有环境。
+# 文件内不要保存真实密码/令牌。完整写入场景由verify.py在隔离库中运行。
+@origin = http://127.0.0.1:3101
+@baseUrl = {{origin}}/api/v1
+@phone = YOUR_ADMIN_PHONE
+@password = CHANGE_ME
+@token = YOUR_ADMIN_ACCESS_TOKEN
+@date = 2026-10-27
+
+### 进程健康：只证明服务活着，不是业务验收通过
+GET {{origin}}/health
+
+### 登录自己的管理员账号；密码放客户端私有环境
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{"phone":"{{phone}}","password":"{{password}}"}
+
+### 会话：确认角色/模拟模式
+GET {{baseUrl}}/auth/session
+Authorization: Bearer {{token}}
+
+### 核心报告：管理员200；普通员工403；未登录401
+# report.status、summary、checks[expected/actual/passed]、money、origin/through、updatedAt
+# 自动校验入口：python3 app/verification/check_report.py --base-url <自己的API地址>
+GET {{baseUrl}}/simulation/report
+Authorization: Bearer {{token}}
+
+### 当前业务日概览：核对订单/销售额，date需改为自己的业务日期
+GET {{baseUrl}}/dashboard/today?date={{date}}
+Authorization: Bearer {{token}}
+
+### 公开设置不应暴露business_simulation_*、密码或令牌
+GET {{baseUrl}}/settings/public
+
+### 未登录读取报告应返回401
+GET {{baseUrl}}/simulation/report

@@ -4,16 +4,33 @@ cd "$(dirname "$0")/.."
 container=${CC4_TEST_CONTAINER:-cc-postgres}
 db_user=${DB_USER:-root}
 simulation_db="cc4_test_simulation_$(date +%s)_$$"
-simulation_tmp=$(mktemp -d)
 server_pid=''
 mock_pid=''
+report_dir=${CC4_VERIFICATION_DIR:-}
+if [[ -n $report_dir ]]; then
+  [[ ! -e $report_dir ]] || { echo 'Verification evidence directory already exists.' >&2; exit 1; }
+  mkdir -p "$report_dir"
+fi
+export_report() {
+  [[ -z $report_dir ]] || docker exec "$container" psql -U "$db_user" -d "$simulation_db" -Atc "SELECT value FROM system_settings WHERE key='business_simulation_report_v1'" > "$report_dir/$1-report.json"
+}
+counts_sql="SELECT json_build_object('employees',(SELECT count(*) FROM employees),'users',(SELECT count(*) FROM users),'daily',(SELECT count(*) FROM daily_performance_records),'orders',(SELECT count(*) FROM daily_performance_order_details),'payments',(SELECT count(*) FROM payment_records),'finance',(SELECT count(*) FROM finance_records),'customers',(SELECT count(*) FROM customers))"
+simulation_tmp=$(mktemp -d)
 cleanup() {
+  result=$?
+  trap - EXIT
   [[ -z $server_pid ]] || kill "$server_pid" 2>/dev/null || true
   [[ -z $mock_pid ]] || kill "$mock_pid" 2>/dev/null || true
   [[ -z $server_pid ]] || wait "$server_pid" 2>/dev/null || true
   [[ -z $mock_pid ]] || wait "$mock_pid" 2>/dev/null || true
-  docker exec "$container" dropdb -U "$db_user" --if-exists "$simulation_db" >/dev/null
-  rm -rf -- "$simulation_tmp"
+  if [[ -n $report_dir ]]; then
+    for log in server mock; do
+      if [[ -f $simulation_tmp/$log.log ]]; then cp "$simulation_tmp/$log.log" "$report_dir/$log.log" || result=1; fi
+    done
+  fi
+  docker exec "$container" dropdb -U "$db_user" --if-exists "$simulation_db" >/dev/null || result=1
+  rm -rf -- "$simulation_tmp" || result=1
+  exit "$result"
 }
 trap cleanup EXIT
 docker exec "$container" createdb -U "$db_user" "$simulation_db"
@@ -34,7 +51,7 @@ mock_port=$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));
 HOST=127.0.0.1 PORT="$mock_port" MOCK_USERNAME=ci-demo MOCK_PASSWORD=ci-simulation-upstream-password MOCK_TOKEN_SECRET=ci-simulation-upstream-token-secret-32 "$simulation_tmp/mock" > "$simulation_tmp/mock.log" 2>&1 &
 mock_pid=$!
 export PGPASSWORD="${DB_PASSWORD:-$(docker exec "$container" printenv POSTGRES_PASSWORD)}"
-DATABASE_URL="postgres://${db_user}@${DB_HOST:-127.0.0.1}:${DB_PORT:-5433}/${simulation_db}?sslmode=disable" HOST=127.0.0.1 PORT="$server_port" ENABLE_CRON=false BUSINESS_SIMULATION_ENABLED=true JWT_SECRET=ci-simulation-jwt-secret UPLOAD_DIR="$simulation_tmp/uploads" GOOKI_HOST="http://127.0.0.1:$mock_port" GOOKI_USERNAME=ci-demo GOOKI_PASSWORD=ci-simulation-upstream-password "$simulation_tmp/cc4-server" > "$simulation_tmp/server.log" 2>&1 &
+DATABASE_URL="postgres://${db_user}@${DB_HOST:-127.0.0.1}:${DB_PORT:-5433}/${simulation_db}?sslmode=disable" DB_NAME="$simulation_db" HOST=127.0.0.1 PORT="$server_port" ENABLE_CRON=false BUSINESS_SIMULATION_ENABLED=true JWT_SECRET=ci-simulation-jwt-secret UPLOAD_DIR="$simulation_tmp/uploads" GOOKI_HOST="http://127.0.0.1:$mock_port" GOOKI_USERNAME=ci-demo GOOKI_PASSWORD=ci-simulation-upstream-password "$simulation_tmp/cc4-server" > "$simulation_tmp/server.log" 2>&1 &
 server_pid=$!
 for attempt in {1..60}; do
   if curl -fsS "http://127.0.0.1:$server_port/health" >/dev/null 2>&1 && curl -fsS "http://127.0.0.1:$mock_port/health" >/dev/null 2>&1; then break; fi
@@ -42,12 +59,20 @@ for attempt in {1..60}; do
 done
 export CC4_SIMULATION_ALLOW_WRITE=true CC4_SIMULATION_ADMIN_PHONE=00099999999 CC4_SIMULATION_ADMIN_PASSWORD=ci-simulation-password CC4_SIMULATION_SEED=ci-business-simulation-deterministic-seed
 python3 simulation/run.py --base-url "http://127.0.0.1:$server_port/api/v1" --days 7
-before=$(docker exec "$container" psql -U "$db_user" -d "$simulation_db" -Atc "SELECT (SELECT count(*) FROM employees),(SELECT count(*) FROM daily_performance_records),(SELECT count(*) FROM payment_records),(SELECT count(*) FROM finance_records)")
+export_report first
+before=$(docker exec "$container" psql -U "$db_user" -d "$simulation_db" -Atc "$counts_sql")
 python3 simulation/run.py --base-url "http://127.0.0.1:$server_port/api/v1" --days 7
-after=$(docker exec "$container" psql -U "$db_user" -d "$simulation_db" -Atc "SELECT (SELECT count(*) FROM employees),(SELECT count(*) FROM daily_performance_records),(SELECT count(*) FROM payment_records),(SELECT count(*) FROM finance_records)")
+export_report repeat
+after=$(docker exec "$container" psql -U "$db_user" -d "$simulation_db" -Atc "$counts_sql")
 [[ $before == "$after" ]] || { echo 'Repeat simulation changed business counts.' >&2; exit 1; }
 sentinel_after=$(docker exec "$container" psql -U "$db_user" -d "$simulation_db" -Atc "SELECT row_to_json(p)::text FROM performance_records p JOIN employees e ON e.id=p.employee_id WHERE e.employee_code='SIM_CI_ADMIN'")
 [[ $sentinel_before == "$sentinel_after" ]] || { echo 'Simulation changed an unrelated monthly record.' >&2; exit 1; }
+if [[ -n $report_dir ]]; then
+  printf '%s\n' "$before" > "$report_dir/counts-before.json"
+  printf '%s\n' "$after" > "$report_dir/counts-after.json"
+  printf '%s\n' "$sentinel_before" > "$report_dir/unrelated-month-before.json"
+  printf '%s\n' "$sentinel_after" > "$report_dir/unrelated-month-after.json"
+fi
 echo 'Real HTTP business simulation and duplicate-run invariants passed.'
 docker exec "$container" psql -q -U "$db_user" -d "$simulation_db" -c "UPDATE finance_records SET amount=amount+1 WHERE id=(SELECT id FROM finance_records WHERE reference_type='daily_performance' ORDER BY id LIMIT 1)" >/dev/null
 if python3 simulation/run.py --base-url "http://127.0.0.1:$server_port/api/v1" --days 7; then
@@ -56,4 +81,5 @@ if python3 simulation/run.py --base-url "http://127.0.0.1:$server_port/api/v1" -
 fi
 verdict=$(docker exec "$container" psql -U "$db_user" -d "$simulation_db" -Atc "SELECT value::jsonb->>'status' FROM system_settings WHERE key='business_simulation_report_v1'")
 [[ $verdict == failed ]]
+export_report negative
 echo 'Injected 1 yuan accounting discrepancy correctly failed the simulation and persisted its report.'
