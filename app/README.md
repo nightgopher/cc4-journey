@@ -4,7 +4,7 @@
 
 ## 本地运行
 
-需要 Go（版本见 go.mod）、Node.js/npm 与 PostgreSQL。将 `.env.example` 中的值配置到启动进程的环境；应用不会自动读取 `.env`。
+需要 Go（版本见 go.mod）、Node.js/npm、PostgreSQL 和 Poppler 的 `pdfinfo`（用于校验PDF页数；macOS `brew install poppler`，Ubuntu `sudo apt-get install poppler-utils`）。将 `.env.example` 中的值配置到启动进程的环境；应用不会自动读取 `.env`。
 
 在空数据库中先导入基线，再应用增量迁移。已有基线的数据库只执行增量：
 
@@ -12,6 +12,8 @@
 cd app
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/000_baseline_schema.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/001_go_completion.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/002_align_imported_sequences.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/004_reimbursement_ocr.sql
 go build -o bin/cc4-server ./cmd/server
 ./bin/cc4-server
 ```
@@ -38,15 +40,27 @@ VITE_API_BASE_URL=http://localhost:3101/api/v1 npm run dev -- --host 127.0.0.1 -
 | DB_HOST / DB_PORT / DB_NAME / DB_USER / DB_PASSWORD | localhost / 5433 / callcenter_db / root / 空；服务端与 MCP 共用 |
 | HOST / PORT | 0.0.0.0 / 3101 |
 | JWT_SECRET | 部署时设置为自己的签名密钥 |
-| UPLOAD_DIR | 默认 `uploads`，保存订单截图，需持久化 |
+| UPLOAD_DIR | 默认 `uploads`，保存订单截图和报销原始票据，需持久化 |
 | BUSINESS_TIMEZONE | Asia/Shanghai，决定定时任务的业务日期 |
 | ENABLE_CRON | 默认开启，设为 `false` 关闭；启动时不补跑历史任务 |
 | GOOKI_HOST / GOOKI_USERNAME / GOOKI_PASSWORD | 可选外呼同步服务配置；缺失时同步接口明确提示未配置 |
 | GOOKI_FILTER_PREFIX | 可选呼叫结果前缀筛选 |
+| PADDLEOCR_API_KEY | 可选，PaddleOCR服务端密钥；未配置仍可上传并人工填写，识别会明确显示未配置 |
+| PADDLEOCR_MODEL | 默认 `PaddleOCR-VL-1.6`；另支持 `PP-OCRv6`、`PP-StructureV3`，仅管理员通过进程环境切换 |
 | VITE_API_BASE_URL | 前端构建/开发使用的 API 地址 |
 | MCP_HTTP_ADDR / MCP_TOKEN | MCP HTTP 监听地址与 Bearer 凭据；未设置监听地址时走 stdio |
 
 每天业务时区 01:00 生成前一日默认考勤，02:00 执行等级检查和月汇总；手工、请假考勤不会被业绩自动同步覆盖。应用提供手工触发接口，权限与页面一致。
+
+## 智能报销演示
+
+工作台“智能报销”可下载合成示例票据（明确标记非税务发票）。员工上传PNG/JPEG或单页PDF，单文件最多8MiB；Go后台创建PaddleOCR异步任务并保存jobId，刷新页面或服务重启后继续查询已保存任务。密钥不进入前端，识别内容及原图按报销权限读取。创建请求结果不确定时会停止自动重发，需用户明确重新识别。
+
+演示顺序：员工上传 → 等待识别 → 对照原票据核对商家、票号、日期、人民币金额并填写用途 → 勾选确认后提交 → 其他主管/财务/管理员批准 → 财务/管理员登记付款。识别和批准均不入账；付款在事务中生成唯一自动支出。申请人不能自审或支付自己的报销。驳回可修改重提，待审批可撤回；已批准金额不可直接修改，已付款保留历史。
+
+相同文件或票据编码/号码会查重。修改、审批和付款携带页面所见的 `version`；记录变更后，旧页面操作返回409，刷新并重新核对后再操作。付款重放仍返回已有结果，不重复支出。自动报销流水不能从通用财务页面改删。
+
+接口示例见 [api.http](verification/api.http)，实现范围、真实供应商与浏览器验证记录见 [OCR验收记录](../journey/13-ocr-reimbursement.md)。默认模型已做真实服务验证，其余两个模型做了结果格式适配与合同测试。OCR仅辅助录入，不做税务真伪认证；当前付款为演示记账，未连接银行。
 
 ## 验证
 

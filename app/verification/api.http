@@ -7,6 +7,12 @@
 @password = CHANGE_ME
 @token = YOUR_ADMIN_ACCESS_TOKEN
 @date = 2026-10-27
+@claimId = 1
+# 每次GET详情读取当前claim.version；变更后必须更新，不能沿用示例数字。
+@claimVersion = 1
+@employeeToken = YOUR_APPLICANT_TOKEN
+@reviewerToken = YOUR_OTHER_REVIEWER_TOKEN
+@financeToken = YOUR_OTHER_FINANCE_TOKEN
 
 ### 进程健康：只证明服务活着，不是业务验收通过
 GET {{origin}}/health
@@ -26,6 +32,60 @@ Authorization: Bearer {{token}}
 # 自动校验入口：python3 app/verification/check_report.py --base-url <自己的API地址>
 GET {{baseUrl}}/simulation/report
 Authorization: Bearer {{token}}
+
+### OCR配置只返回是否就绪和模型，不返回密钥
+GET {{baseUrl}}/reimbursements/config
+Authorization: Bearer {{employeeToken}}
+
+### 员工上传合成票据；文件路径相对本文件，可按客户端规则调整
+# 实际调用PaddleOCR会使用服务端密钥与额度；CI使用本地合同模拟。
+POST {{baseUrl}}/reimbursements
+Authorization: Bearer {{employeeToken}}
+Content-Type: multipart/form-data; boundary=CC4ReceiptBoundary
+
+--CC4ReceiptBoundary
+Content-Disposition: form-data; name="receipt"; filename="invoice-demo.png"
+Content-Type: image/png
+
+< ../test/fixtures/reimbursement/invoice-demo.png
+--CC4ReceiptBoundary--
+
+### 回读ocr_status直到ready或failed；记录id与version，核对ocr_result及原始票据
+GET {{baseUrl}}/reimbursements/{{claimId}}
+Authorization: Bearer {{employeeToken}}
+
+### 人工核对保存草稿；版本从最近GET读取；修改成功后再次GET获取新version
+PUT {{baseUrl}}/reimbursements/{{claimId}}
+Authorization: Bearer {{employeeToken}}
+Content-Type: application/json
+
+{"version":{{claimVersion}},"title":"课堂办公报销","category":"office","merchant":"Demo Office Supplies","invoiceNumber":"DEMO-20261027-001","invoiceCode":"","invoiceDate":"{{date}}","currency":"CNY","invoiceTotal":125.50,"amount":125.50,"reason":"合成票据教学演示"}
+
+### 员工明确确认后提交；未核对/超额拒绝，识别进行中或旧版本409
+POST {{baseUrl}}/reimbursements/{{claimId}}/submit
+Authorization: Bearer {{employeeToken}}
+Content-Type: application/json
+
+{"version":{{claimVersion}},"confirmed":true}
+
+### 其他审批人先GET核对详情和当前version；申请人自审403
+POST {{baseUrl}}/reimbursements/{{claimId}}/approve
+Authorization: Bearer {{reviewerToken}}
+Content-Type: application/json
+
+{"version":{{claimVersion}},"note":"已核对原始合成票据与用途"}
+
+### 其他财务/管理员登记付款；日期不得早于票据或晚于业务今天
+# 付款前再次GET核对版本和金额。付款重复请求200但只保留原一笔支出。
+POST {{baseUrl}}/reimbursements/{{claimId}}/pay
+Authorization: Bearer {{financeToken}}
+Content-Type: application/json
+
+{"version":{{claimVersion}},"paymentDate":"{{date}}","note":"课堂演示记账，无真实银行付款"}
+
+### 处理轨迹：上传、识别、人工修改、提交、批准、付款
+GET {{baseUrl}}/reimbursements/{{claimId}}/events
+Authorization: Bearer {{employeeToken}}
 
 ### 当前业务日概览：核对订单/销售额，date需改为自己的业务日期
 GET {{baseUrl}}/dashboard/today?date={{date}}

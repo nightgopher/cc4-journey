@@ -6,15 +6,17 @@
 
 ## 首次准备
 
-1. 安装 `postgresql postgresql-contrib`，保留本机监听与 peer/SCRAM 默认认证。
+1. 安装 `postgresql postgresql-contrib`，保留本机监听与 peer/SCRAM 默认认证。运行 `sudo bash app/deploy/install-reimbursement-support.sh` 安装用于单页PDF校验的`pdfinfo`；OCR在Paddle云端执行，本机无需GPU或识别模型。
 2. 为此项目生成专用 Ed25519 发布密钥，将公钥和本目录文件通过已有管理员 SSH 上传。
 3. root 执行 `bootstrap.sh <公钥文件>`。脚本针对已经检查过的 `/etc/nginx/sites-enabled/ai-video-studio` 追加自己的 include，不替换原根路径；数据库角色 `cc4` 无超级用户、建库或建角色权限。
-4. `/etc/cc4.env` 为 root 0600，自动生成独立 DB/JWT 密钥。可追加 `GOOKI_HOST / GOOKI_USERNAME / GOOKI_PASSWORD`，不要提交该文件。
+4. `/etc/cc4.env` 为 root 0600，自动生成独立 DB/JWT 密钥。可追加 `GOOKI_HOST / GOOKI_USERNAME / GOOKI_PASSWORD` 与 `PADDLEOCR_API_KEY / PADDLEOCR_MODEL`，不要提交该文件。默认OCR模型为`PaddleOCR-VL-1.6`。
 5. 配置仓库 Secrets：`CC4_APP_DEPLOY_SSH_KEY`（专用私钥）、`CC4_APP_KNOWN_HOSTS`（经已有可信 SSH 连接核对的主机公钥）。该发布公钥有 `restrict,command="/usr/local/sbin/cc4-deploy"` 限制，不能运行交互命令或转发端口。
 
 空库首次发布会应用全量基线和增量。基线中的本机 `OWNER TO root` 在打包时移除，所有对象归 `cc4` 所有。既有完整数据库快照应先用 `pg_dump --no-owner --no-acl` 导入空库，再用同一打包逻辑生成规范化 SQL，明确执行 `migrate.py <规范化迁移目录> --adopt-existing`。采用记录仅跳过已核对的 `000 / 001` 快照基线并检查关键表/字段，后续增量仍实际执行；后续发布不自动采用未知库。
 
 `002` 迁移对齐导入数据的自增序列：锁住对应表后读取最大主键，只向上推进落后的序列，保留已领先的序列及空表初始值。它解决历史显式 ID 已存在但新建记录撞号的问题，不改动业务记录。
+
+`004` 增加报销、识别任务、版本与处理记录，保留原业务表。原图位于持久上传目录的`receipts/`，不随release替换。已安装旧发布校验器的服务器，应由管理员用本仓库最新版`app/deploy/verify_release.py`更新`/usr/local/lib/cc4/verify_release.py`；静态白名单仅新增两个明确的合成样例PNG/PDF路径，未放开任意上传文件。
 
 初始账号通过受保护的管理员通道配置。数据库快照、密码、截图和登录凭据均不进入 Git 仓库或 Actions 构建产物。
 
