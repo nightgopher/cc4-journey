@@ -165,6 +165,22 @@ func (h *apiHandler) wechatUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	h.wechatDetail(w, r)
 }
+// wechatClosed rejects work on a lead that has reached a final state (PRD 3.2):
+// a converted, lost or duplicate lead can no longer be reassigned or followed up,
+// so the owner recorded at conversion stays the owner for attribution (F6).
+func wechatClosed(w http.ResponseWriter, r *http.Request, id int, what string) bool {
+	var status string
+	if err := repo.Pool.QueryRow(r.Context(), `SELECT COALESCE(status,'') FROM wechat_leads WHERE id=$1`, id).Scan(&status); err != nil {
+		writeErr(w, 404, "线索不存在")
+		return true
+	}
+	switch status {
+	case "converted", "lost", "duplicate":
+		writeErr(w, 409, "已转化、无效或重复的线索不能再"+what)
+		return true
+	}
+	return false
+}
 func (h *apiHandler) wechatAssign(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -182,7 +198,7 @@ func (h *apiHandler) wechatAssign(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 400, "请选择员工")
 		return
 	}
-	if !canAccessEmployee(w, r, in.EmployeeID) {
+	if !canAccessEmployee(w, r, in.EmployeeID) || wechatClosed(w, r, id, "分配") {
 		return
 	}
 	tag, err := repo.Pool.Exec(r.Context(), `UPDATE wechat_leads SET assigned_to=$2,assigned_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=$1`, id, in.EmployeeID)
@@ -210,6 +226,9 @@ func (h *apiHandler) wechatFollowUp(w http.ResponseWriter, r *http.Request) {
 	}
 	if json.NewDecoder(r.Body).Decode(&in) != nil || strings.TrimSpace(in.Content) == "" {
 		writeErr(w, 400, "请填写跟进内容")
+		return
+	}
+	if wechatClosed(w, r, id, "跟进") {
 		return
 	}
 	_, err = repo.Pool.Exec(r.Context(), `UPDATE wechat_leads SET last_follow_up_time=CURRENT_TIMESTAMP,last_follow_up_content=$2,follow_up_count=COALESCE(follow_up_count,0)+1,status=CASE WHEN status='new' THEN 'contacted' ELSE status END,updated_at=CURRENT_TIMESTAMP WHERE id=$1`, id, in.Content)

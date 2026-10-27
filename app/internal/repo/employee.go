@@ -27,6 +27,7 @@ type Employee struct {
 	UpdatedAt    time.Time  `json:"updated_at"`
 	// JOIN 附加字段（对齐旧列表响应）：
 	UserRole              *string `json:"user_role,omitempty"`
+	LoginPhone            *string `json:"login_phone,omitempty"` // users.phone: the account's login name
 	LastLogin             *string `json:"last_login,omitempty"`
 	RecentAttendanceCount *int    `json:"recent_attendance_count"`
 	CurrentMonthOrders    *int    `json:"current_month_orders"`
@@ -57,7 +58,7 @@ func ListEmployees(ctx context.Context, p EmployeeListParams) ([]Employee, int, 
 	}
 	if p.Search != "" {
 		n := add("%" + p.Search + "%")
-		where = append(where, `(e.name ILIKE $`+n+` OR e.employee_code ILIKE $`+n+`)`)
+		where = append(where, `(e.name ILIKE $`+n+` OR e.employee_code ILIKE $`+n+` OR e.phone ILIKE $`+n+` OR u.phone ILIKE $`+n+`)`)
 	}
 	if p.Department != "" {
 		where = append(where, `e.department = $`+add(p.Department))
@@ -78,13 +79,13 @@ func ListEmployees(ctx context.Context, p EmployeeListParams) ([]Employee, int, 
 
 	var total int
 	if err := Pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM employees e `+whereSQL, args...).Scan(&total); err != nil {
+		`SELECT COUNT(*) FROM employees e LEFT JOIN users u ON u.id = e.user_id `+whereSQL, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
 	sql := `SELECT e.id, e.user_id, e.employee_code, e.name, e.phone, e.email, e.department, e.position,
 			e.level, e.join_date, e.avatar_url, e.salary_base, e.status, e.team_id, e.created_at, e.updated_at,
-			u.role, TO_CHAR(u.last_login AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+			u.role, u.phone, TO_CHAR(u.last_login AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
 			(SELECT COUNT(DISTINCT a.date)::int FROM attendance_records a WHERE a.employee_id=e.id AND a.date BETWEEN CURRENT_DATE-6 AND CURRENT_DATE AND (a.status='work' OR COALESCE(a.attendance_days,0)>0)),
 			(SELECT COALESCE(SUM(d.orders_count),0)::int FROM daily_performance_records d WHERE d.employee_id=e.id AND d.work_date>=date_trunc('month',CURRENT_DATE)::date AND d.work_date<(date_trunc('month',CURRENT_DATE)+interval '1 month')::date)
 		FROM employees e LEFT JOIN users u ON u.id = e.user_id ` + whereSQL +
@@ -101,7 +102,7 @@ func ListEmployees(ctx context.Context, p EmployeeListParams) ([]Employee, int, 
 		if err := rows.Scan(&e.ID, &e.UserID, &e.EmployeeCode, &e.Name, &e.Phone, &e.Email,
 			&e.Department, &e.Position, &e.Level, &e.JoinDate, &e.AvatarURL,
 			&e.SalaryBase, &e.Status, &e.TeamID, &e.CreatedAt, &e.UpdatedAt,
-			&e.UserRole, &e.LastLogin, &e.RecentAttendanceCount, &e.CurrentMonthOrders); err != nil {
+			&e.UserRole, &e.LoginPhone, &e.LastLogin, &e.RecentAttendanceCount, &e.CurrentMonthOrders); err != nil {
 			return nil, 0, err
 		}
 		out = append(out, e)

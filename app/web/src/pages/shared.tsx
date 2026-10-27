@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -462,6 +463,15 @@ export function ResourcePage({
       null,
     ),
     [detailRow, setDetailRow] = useState<Row | null>(null);
+  const detailPanel = useRef<HTMLElement>(null);
+  // The panel renders below the table; bring it into view so the action visibly responds.
+  useEffect(() => {
+    if (detailRow)
+      detailPanel.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+  }, [detailRow]);
   useEffect(() => {
     const refresh = () => setVersion((v) => v + 1);
     addEventListener("cc4:refresh", refresh);
@@ -739,7 +749,7 @@ export function ResourcePage({
         />
       )}
       {detailRow && detail && (
-        <section className="detail-panel">
+        <section className="detail-panel" ref={detailPanel}>
           {detail(detailRow, () => setDetailRow(null))}
         </section>
       )}

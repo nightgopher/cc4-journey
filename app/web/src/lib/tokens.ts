@@ -57,6 +57,16 @@ export const LEVEL_ZH: Record<string, string> = {
   eliminated: "已淘汰",
 };
 
+/** 账号角色中文名 */
+export const ROLE_ZH: Record<string, string> = {
+  admin: "管理员",
+  manager: "团队经理",
+  workplace_manager: "职场经理",
+  hr: "人力",
+  finance: "财务",
+  employee: "销售",
+};
+
 /** 状态中文名 */
 export const STATUS_ZH: Record<string, string> = {
   active: "在职",

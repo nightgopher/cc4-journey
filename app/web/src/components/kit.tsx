@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from "react";
-import { money, LEVEL_ZH, STATUS_ZH } from "../lib/tokens";
+import { createPortal } from "react-dom";
+import { money, LEVEL_ZH, ROLE_ZH, STATUS_ZH } from "../lib/tokens";
 import { auth, setToken } from "../lib/api";
 
 export function Icon({ name, size = 18 }: { name: string; size?: number }) {
@@ -84,17 +85,23 @@ export interface RowMenuItem {
   onSelect: () => void;
 }
 
-/** 行内「更多」菜单：fixed 定位，避免被表格滚动容器裁剪。 */
+/**
+ * 行内「更多」菜单：渲染到 body 并 fixed 定位。操作列是 sticky 单元格，会形成独立层叠上下文，
+ * 菜单留在单元格内时会被下一行的操作列遮住、被表格裁剪。
+ */
 export function RowMenu({ items }: { items: RowMenuItem[] }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const root = useRef<HTMLDivElement>(null);
+  const pop = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!open) return;
     const close = () => setOpen(false);
     const onDoc = (e: MouseEvent) => {
-      if (!root.current?.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (!root.current?.contains(target) && !pop.current?.contains(target))
+        setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -120,7 +127,15 @@ export function RowMenu({ items }: { items: RowMenuItem[] }) {
       return;
     }
     const r = trigger.current?.getBoundingClientRect();
-    if (r) setPos({ top: r.bottom + 4, left: Math.max(8, r.right - 148) });
+    if (r) {
+      // Open upward when the menu would run past the bottom of the viewport.
+      const height = items.length * 32 + 10;
+      const top =
+        r.bottom + 4 + height > window.innerHeight
+          ? Math.max(8, r.top - 4 - height)
+          : r.bottom + 4;
+      setPos({ top, left: Math.max(8, r.right - 148) });
+    }
     setOpen(true);
   };
   return (
@@ -136,24 +151,27 @@ export function RowMenu({ items }: { items: RowMenuItem[] }) {
         更多
         <Icon name="caret" size={14} />
       </button>
-      {open && pos && (
-        <div className="row-menu-pop" role="menu" style={pos}>
-          {items.map((it) => (
-            <button
-              key={it.label}
-              type="button"
-              role="menuitem"
-              className={it.danger ? "row-menu-item danger" : "row-menu-item"}
-              onClick={() => {
-                setOpen(false);
-                it.onSelect();
-              }}
-            >
-              {it.label}
-            </button>
-          ))}
-        </div>
-      )}
+      {open &&
+        pos &&
+        createPortal(
+          <div className="row-menu-pop" role="menu" style={pos} ref={pop}>
+            {items.map((it) => (
+              <button
+                key={it.label}
+                type="button"
+                role="menuitem"
+                className={it.danger ? "row-menu-item danger" : "row-menu-item"}
+                onClick={() => {
+                  setOpen(false);
+                  it.onSelect();
+                }}
+              >
+                {it.label}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -782,18 +800,7 @@ export function AppShell({
           </div>
           <div>
             <strong>{userName || "当前用户"}</strong>
-            <span>
-              {(
-                {
-                  admin: "管理员",
-                  manager: "团队经理",
-                  workplace_manager: "职场经理",
-                  hr: "人力",
-                  finance: "财务",
-                  employee: "销售",
-                } as Record<string, string>
-              )[userRole ?? ""] ?? userRole}
-            </span>
+            <span>{ROLE_ZH[userRole ?? ""] ?? userRole}</span>
           </div>
           <button
             className="icon-button"

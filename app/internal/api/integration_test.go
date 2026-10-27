@@ -380,6 +380,14 @@ func TestBusinessIntegration(t *testing.T) {
 		}
 		id := int(list[0].(map[string]any)["id"].(float64))
 		request(t, employeeToken, "POST", fmt.Sprintf("/wechat-leads/%d/follow-up", id), map[string]string{"content": "已联系，安排体验课"}, 200)
+		// Converted is final: no more follow-ups or reassignment, so attribution cannot move.
+		request(t, employeeToken, "PUT", fmt.Sprintf("/wechat-leads/%d", id), map[string]any{"is_converted": true}, 200)
+		request(t, employeeToken, "POST", fmt.Sprintf("/wechat-leads/%d/follow-up", id), map[string]string{"content": "成交后再跟进"}, 409)
+		request(t, adminToken, "PUT", fmt.Sprintf("/wechat-leads/%d/assign", id), map[string]any{"employeeId": adminEmp}, 409)
+		var owner, follows int
+		if err = repo.Pool.QueryRow(ctx, `SELECT assigned_to,follow_up_count FROM wechat_leads WHERE id=$1`, id).Scan(&owner, &follows); err != nil || owner != employeeID || follows != 1 {
+			t.Fatalf("converted lead changed: owner %d follow-ups %d err %v", owner, follows, err)
+		}
 		request(t, employeeToken, "GET", "/wechat-leads/stats/overview", nil, 200)
 		rq := httptest.NewRequest("GET", "/api/v1/wechat-leads/export/full", nil)
 		rq.Header.Set("Authorization", "Bearer "+adminToken)
