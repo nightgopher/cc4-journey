@@ -62,11 +62,24 @@ func TestReimbursementIntegration(t *testing.T) {
 		tokens[spec.name], _ = signToken(uid, []byte("ocr-integration-test"))
 	}
 	handler := Router("ocr-integration-test")
-	call := func(who, method, path string, body any, want int) map[string]any {
+	call := func(t *testing.T, who, method, path string, body any, want int) map[string]any {
 		t.Helper()
 		var raw []byte
 		if body != nil {
 			raw, _ = json.Marshal(body)
+			if (method == "POST" || method == "PUT") && strings.HasPrefix(path, "/reimbursements/") {
+				var values map[string]any
+				_ = json.Unmarshal(raw, &values)
+				if _, exists := values["version"]; !exists {
+					var id, version int
+					_, _ = fmt.Sscanf(path, "/reimbursements/%d", &id)
+					if err := repo.Pool.QueryRow(ctx, `SELECT version FROM reimbursement_claims WHERE id=$1`, id).Scan(&version); err != nil {
+						t.Fatal(err)
+					}
+					values["version"] = version
+				}
+				raw, _ = json.Marshal(values)
+			}
 		}
 		r := httptest.NewRequest(method, "/api/v1"+path, bytes.NewReader(raw))
 		r.Header.Set("Authorization", "Bearer "+tokens[who])
@@ -84,7 +97,7 @@ func TestReimbursementIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	upload := func(raw []byte, name string, want int) int {
+	upload := func(t *testing.T, raw []byte, name string, want int) int {
 		t.Helper()
 		var body bytes.Buffer
 		form := multipart.NewWriter(&body)
@@ -133,7 +146,7 @@ func TestReimbursementIntegration(t *testing.T) {
 	defer supplier.Close()
 	supplierURL = supplier.URL
 	client, _ := service.NewPaddleClient(supplier.URL+"/jobs", "test-only", service.PaddleModels[0], true)
-	process := func(id int) {
+	process := func(t *testing.T, id int) {
 		t.Helper()
 		for range 2 {
 			_, err := repo.Pool.Exec(ctx, `UPDATE reimbursement_claims SET ocr_next_poll=now() WHERE id=$1`, id)
@@ -151,35 +164,35 @@ func TestReimbursementIntegration(t *testing.T) {
 	}
 	var first, financeID int
 	t.Run("receipt upload and ownership privacy", func(t *testing.T) {
-		first = upload(image, "demo.png", 201)
-		call("other", "GET", path(first), nil, 403)
-		call("outsider", "GET", path(first)+"/receipt", nil, 403)
-		call("other", "GET", path(first)+"/events", nil, 403)
-		config := call("owner", "GET", "/reimbursements/config", nil, 200)
+		first = upload(t, image, "demo.png", 201)
+		call(t, "other", "GET", path(first), nil, 403)
+		call(t, "outsider", "GET", path(first)+"/receipt", nil, 403)
+		call(t, "other", "GET", path(first)+"/events", nil, 403)
+		config := call(t, "owner", "GET", "/reimbursements/config", nil, 200)
 		raw, _ := json.Marshal(config)
 		if strings.Contains(string(raw), "test-only") || strings.Contains(string(raw), "API_KEY") {
 			t.Fatal("key exposed in config")
 		}
 	})
 	t.Run("asynchronous supplier contract and immutable suggestions", func(t *testing.T) {
-		process(first)
-		r := call("owner", "GET", path(first), nil, 200)["claim"].(map[string]any)
+		process(t, first)
+		r := call(t, "owner", "GET", path(first), nil, 200)["claim"].(map[string]any)
 		if r["ocr_status"] != "ready" || r["amount"] != 125.5 || r["merchant"] != "Demo Office Supplies" {
 			t.Fatal(r)
 		}
 	})
 	t.Run("confirmation money limits and self approval", func(t *testing.T) {
-		call("owner", "PUT", path(first), input("DEMO-20261027-001", 126), 200)
-		call("owner", "POST", path(first)+"/submit", map[string]bool{"confirmed": true}, 400)
-		call("owner", "PUT", path(first), input("DEMO-20261027-001", 125.5), 200)
-		call("owner", "POST", path(first)+"/submit", map[string]bool{"confirmed": false}, 400)
-		call("owner", "POST", path(first)+"/submit", map[string]bool{"confirmed": true}, 200)
-		call("owner", "POST", path(first)+"/approve", map[string]any{}, 403)
-		call("owner", "POST", path(first)+"/pay", map[string]any{}, 403)
-		call("outsider", "POST", path(first)+"/approve", map[string]any{}, 403)
-		call("manager", "POST", path(first)+"/approve", map[string]any{}, 200)
-		call("owner", "PUT", path(first), input("DEMO-20261027-001", 1), 409)
-		call("owner", "POST", path(first)+"/cancel", map[string]any{}, 409)
+		call(t, "owner", "PUT", path(first), input("DEMO-20261027-001", 126), 200)
+		call(t, "owner", "POST", path(first)+"/submit", map[string]bool{"confirmed": true}, 400)
+		call(t, "owner", "PUT", path(first), input("DEMO-20261027-001", 125.5), 200)
+		call(t, "owner", "POST", path(first)+"/submit", map[string]bool{"confirmed": false}, 400)
+		call(t, "owner", "POST", path(first)+"/submit", map[string]bool{"confirmed": true}, 200)
+		call(t, "owner", "POST", path(first)+"/approve", map[string]any{}, 403)
+		call(t, "owner", "POST", path(first)+"/pay", map[string]any{}, 403)
+		call(t, "outsider", "POST", path(first)+"/approve", map[string]any{}, 403)
+		call(t, "manager", "POST", path(first)+"/approve", map[string]any{}, 200)
+		call(t, "owner", "PUT", path(first), input("DEMO-20261027-001", 1), 409)
+		call(t, "owner", "POST", path(first)+"/cancel", map[string]any{}, 409)
 		var count int
 		_ = repo.Pool.QueryRow(ctx, `SELECT count(*) FROM finance_records WHERE reference_type='reimbursement'`).Scan(&count)
 		if count != 0 {
@@ -187,16 +200,18 @@ func TestReimbursementIntegration(t *testing.T) {
 		}
 	})
 	t.Run("payment authorization and concurrent idempotency", func(t *testing.T) {
-		call("manager", "POST", path(first)+"/pay", map[string]string{"paymentDate": "2026-10-27"}, 403)
-		call("finance", "POST", path(first)+"/pay", map[string]any{"paymentDate": "2026-10-27", "amount": 999}, 400)
-		call("finance", "POST", path(first)+"/pay", map[string]string{"paymentDate": "2100-01-01"}, 400)
+		call(t, "manager", "POST", path(first)+"/pay", map[string]string{"paymentDate": "2026-10-27"}, 403)
+		call(t, "finance", "POST", path(first)+"/pay", map[string]any{"paymentDate": "2026-10-27", "amount": 999}, 400)
+		call(t, "finance", "POST", path(first)+"/pay", map[string]string{"paymentDate": "2100-01-01"}, 400)
 		var wg sync.WaitGroup
+		var approvedVersion int
+		_ = repo.Pool.QueryRow(ctx, `SELECT version FROM reimbursement_claims WHERE id=$1`, first).Scan(&approvedVersion)
 		failures := make(chan string, 6)
 		for range 6 {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				r := httptest.NewRequest("POST", "/api/v1"+path(first)+"/pay", strings.NewReader(`{"paymentDate":"2026-10-27"}`))
+				r := httptest.NewRequest("POST", "/api/v1"+path(first)+"/pay", strings.NewReader(fmt.Sprintf(`{"paymentDate":"2026-10-27","version":%d}`, approvedVersion)))
 				r.Header.Set("Authorization", "Bearer "+tokens["finance"])
 				w := httptest.NewRecorder()
 				handler.ServeHTTP(w, r)
@@ -218,31 +233,31 @@ func TestReimbursementIntegration(t *testing.T) {
 		}
 	})
 	t.Run("paid expense cannot be edited or deleted through finance", func(t *testing.T) {
-		call("finance", "PUT", fmt.Sprintf("/finance/expense/%d", financeID), map[string]float64{"amount": 999}, 409)
-		call("finance", "DELETE", fmt.Sprintf("/finance/expense/%d", financeID), nil, 409)
-		call("owner", "POST", path(first)+"/withdraw", map[string]any{}, 409)
+		call(t, "finance", "PUT", fmt.Sprintf("/finance/expense/%d", financeID), map[string]float64{"amount": 999}, 409)
+		call(t, "finance", "DELETE", fmt.Sprintf("/finance/expense/%d", financeID), nil, 409)
+		call(t, "owner", "POST", path(first)+"/withdraw", map[string]any{}, 409)
 	})
 	t.Run("duplicate file and invoice are rejected", func(t *testing.T) {
-		upload(image, "duplicate.png", 409)
-		duplicate := upload(append(append([]byte{}, image...), []byte("same-invoice")...), "variant.png", 201)
-		process(duplicate)
-		call("owner", "PUT", path(duplicate), input("DEMO-20261027-001", 125.5), 409)
+		upload(t, image, "duplicate.png", 409)
+		duplicate := upload(t, append(append([]byte{}, image...), []byte("same-invoice")...), "variant.png", 201)
+		process(t, duplicate)
+		call(t, "owner", "PUT", path(duplicate), input("DEMO-20261027-001", 125.5), 409)
 	})
 	t.Run("rejection editing and resubmission", func(t *testing.T) {
 		invoice.Store("DEMO-REJECT-002")
-		id := upload(append(append([]byte{}, image...), []byte("rejection")...), "rejected.png", 201)
-		process(id)
-		call("owner", "PUT", path(id), input("DEMO-REJECT-002", 100), 200)
-		call("owner", "POST", path(id)+"/submit", map[string]bool{"confirmed": true}, 200)
-		call("manager", "POST", path(id)+"/reject", map[string]string{"note": ""}, 400)
-		call("manager", "POST", path(id)+"/reject", map[string]string{"note": "请补充用途"}, 200)
-		call("owner", "PUT", path(id), input("DEMO-REJECT-002", 100), 200)
-		call("owner", "POST", path(id)+"/submit", map[string]bool{"confirmed": true}, 200)
-		call("owner", "POST", path(id)+"/withdraw", map[string]any{}, 200)
+		id := upload(t, append(append([]byte{}, image...), []byte("rejection")...), "rejected.png", 201)
+		process(t, id)
+		call(t, "owner", "PUT", path(id), input("DEMO-REJECT-002", 100), 200)
+		call(t, "owner", "POST", path(id)+"/submit", map[string]bool{"confirmed": true}, 200)
+		call(t, "manager", "POST", path(id)+"/reject", map[string]string{"note": ""}, 400)
+		call(t, "manager", "POST", path(id)+"/reject", map[string]string{"note": "请补充用途"}, 200)
+		call(t, "owner", "PUT", path(id), input("DEMO-REJECT-002", 100), 200)
+		call(t, "owner", "POST", path(id)+"/submit", map[string]bool{"confirmed": true}, 200)
+		call(t, "owner", "POST", path(id)+"/withdraw", map[string]any{}, 200)
 	})
 	t.Run("interrupted submission is not automatically replayed", func(t *testing.T) {
 		invoice.Store("DEMO-RECOVER-003")
-		id := upload(append(append([]byte{}, image...), []byte("interrupted")...), "interrupted.png", 201)
+		id := upload(t, append(append([]byte{}, image...), []byte("interrupted")...), "interrupted.png", 201)
 		before := posts.Load()
 		job, err := repo.AcquireOCRJob(ctx, strings.Repeat("a", 32))
 		if err != nil || job.ID != id {
@@ -252,50 +267,77 @@ func TestReimbursementIntegration(t *testing.T) {
 		if _, err = service.RunReimbursementOCR(ctx, client, filepath.Join(directory, "receipts")); err != nil {
 			t.Fatal(err)
 		}
-		row := call("owner", "GET", path(id), nil, 200)["claim"].(map[string]any)
+		row := call(t, "owner", "GET", path(id), nil, 200)["claim"].(map[string]any)
 		if row["ocr_status"] != "failed" || posts.Load() != before {
 			t.Fatal("uncertain POST replayed")
 		}
-		call("owner", "POST", path(id)+"/recognize", map[string]any{}, 200)
-		process(id)
+		call(t, "owner", "POST", path(id)+"/recognize", map[string]any{}, 200)
+		process(t, id)
 		if posts.Load() != before+1 {
 			t.Fatal("explicit retry did not submit exactly once")
 		}
 	})
+	t.Run("stale approval cannot approve a changed and resubmitted amount", func(t *testing.T) {
+		invoice.Store("DEMO-VERSION-004")
+		id := upload(t, append(append([]byte{}, image...), []byte("stale-approval")...), "version.png", 201)
+		process(t, id)
+		call(t, "owner", "PUT", path(id), input("DEMO-VERSION-004", 100), 200)
+		call(t, "owner", "POST", path(id)+"/submit", map[string]bool{"confirmed": true}, 200)
+		// Reviewer reads the first 100 yuan submission, then keeps this page open.
+		oldVersion := call(t, "manager", "GET", path(id), nil, 200)["claim"].(map[string]any)["version"]
+		call(t, "owner", "POST", path(id)+"/withdraw", map[string]any{}, 200)
+		call(t, "owner", "PUT", path(id), input("DEMO-VERSION-004", 125.5), 200)
+		call(t, "owner", "POST", path(id)+"/submit", map[string]bool{"confirmed": true}, 200)
+		call(t, "manager", "POST", path(id)+"/approve", map[string]any{"version": oldVersion}, 409)
+		call(t, "manager", "POST", path(id)+"/approve", map[string]any{}, 200)
+		oldPaymentVersion := call(t, "finance", "GET", path(id), nil, 200)["claim"].(map[string]any)["version"]
+		call(t, "finance", "POST", path(id)+"/reject", map[string]string{"note": "退回重新核对金额"}, 200)
+		call(t, "owner", "PUT", path(id), input("DEMO-VERSION-004", 50), 200)
+		staleEdit := input("DEMO-VERSION-004", 125.5)
+		staleEdit["version"] = oldVersion
+		call(t, "owner", "PUT", path(id), staleEdit, 409)
+		call(t, "owner", "POST", path(id)+"/submit", map[string]bool{"confirmed": true}, 200)
+		call(t, "manager", "POST", path(id)+"/approve", map[string]any{}, 200)
+		call(t, "finance", "POST", path(id)+"/pay", map[string]any{"version": oldPaymentVersion, "paymentDate": "2026-10-27"}, 409)
+		current := call(t, "finance", "GET", path(id), nil, 200)["claim"].(map[string]any)
+		if current["status"] != "approved" || current["amount"] != float64(50) || current["finance_record_id"] != nil {
+			t.Fatal("stale decision changed the current submission")
+		}
+	})
 	t.Run("cancelled jobs reject stale results and release receipt reservation", func(t *testing.T) {
 		raw := append(append([]byte{}, image...), []byte("cancelled")...)
-		id := upload(raw, "cancelled.png", 201)
+		id := upload(t, raw, "cancelled.png", 201)
 		job, err := repo.AcquireOCRJob(ctx, strings.Repeat("b", 32))
 		if err != nil || job.ID != id {
 			t.Fatal(err)
 		}
-		call("owner", "POST", path(id)+"/cancel", map[string]any{}, 200)
+		call(t, "owner", "POST", path(id)+"/cancel", map[string]any{}, 200)
 		if err = repo.SaveOCRJob(ctx, job, "ready", nil, nil, &domain.ReceiptRecognition{}, ""); err != nil {
 			t.Fatal(err)
 		}
-		row := call("owner", "GET", path(id), nil, 200)["claim"].(map[string]any)
+		row := call(t, "owner", "GET", path(id), nil, 200)["claim"].(map[string]any)
 		if row["status"] != "cancelled" || row["ocr_result"] != nil {
 			t.Fatal("stale worker overwrote cancellation")
 		}
-		fresh := upload(raw, "retry-file.png", 201)
-		call("owner", "POST", path(fresh)+"/cancel", map[string]any{}, 200)
+		fresh := upload(t, raw, "retry-file.png", 201)
+		call(t, "owner", "POST", path(fresh)+"/cancel", map[string]any{}, 200)
 	})
 	t.Run("invalid receipt content and single page PDF", func(t *testing.T) {
-		upload([]byte("<svg onload=alert(1)></svg>"), "fake.png", 400)
+		upload(t, []byte("<svg onload=alert(1)></svg>"), "fake.png", 400)
 		pdf, err := os.ReadFile("../../test/fixtures/reimbursement/invoice-demo.pdf")
 		if err != nil {
 			t.Fatal(err)
 		}
-		id := upload(pdf, "receipt.pdf", 201)
-		call("owner", "POST", path(id)+"/cancel", map[string]any{}, 200)
+		id := upload(t, pdf, "receipt.pdf", 201)
+		call(t, "owner", "POST", path(id)+"/cancel", map[string]any{}, 200)
 		bad := bytes.Replace(pdf, []byte("/Count 1"), []byte("/Count 2"), 1)
-		upload(bad, "two-pages.pdf", 400)
+		upload(t, bad, "two-pages.pdf", 400)
 	})
 	if target := os.Getenv("CC4_REIMBURSEMENT_REPORT"); target != "" {
 		if t.Failed() {
 			return
 		}
-		b, _ := json.MarshalIndent(map[string]any{"status": "passed", "supplierMode": "HTTP contract mock", "model": service.PaddleModels[0], "expenseCount": 1, "expenseAmount": 125.5, "concurrentPayments": 6, "privacy": "passed", "duplicateReceipt": "rejected", "duplicateInvoice": "rejected", "uncertainSubmission": "not replayed", "staleWorker": "rejected"}, "", "  ")
+		b, _ := json.MarshalIndent(map[string]any{"status": "passed", "supplierMode": "HTTP contract mock", "model": service.PaddleModels[0], "expenseCount": 1, "expenseAmount": 125.5, "concurrentPayments": 6, "privacy": "passed", "duplicateReceipt": "rejected", "duplicateInvoice": "rejected", "uncertainSubmission": "not replayed", "staleWorker": "rejected", "staleDecision": "rejected"}, "", "  ")
 		if err = os.WriteFile(target, b, 0600); err != nil {
 			t.Fatal(err)
 		}

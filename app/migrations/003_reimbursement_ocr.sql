@@ -1,5 +1,6 @@
 CREATE TABLE reimbursement_claims (
     id serial PRIMARY KEY,
+    version integer NOT NULL DEFAULT 1,
     employee_id integer NOT NULL REFERENCES employees(id),
     title varchar(160) NOT NULL DEFAULT '票据报销',
     category varchar(32) NOT NULL DEFAULT 'other' CHECK(category IN ('office','transport','travel','meals','other')),

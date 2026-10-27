@@ -15,6 +15,7 @@ import { money } from "../lib/tokens";
 import { SimpleHeader, today, useRemote, useWorkspace } from "./shared";
 
 type Fields = {
+  version: number;
   title: string;
   category: string;
   merchant: string;
@@ -42,6 +43,7 @@ type Recognition = {
   };
 };
 type Claim = {
+  version: number;
   id: number;
   employee_id: number;
   employee_name: string;
@@ -108,6 +110,7 @@ const claimStatus = (status: string) => (
   />
 );
 const fieldsFor = (r: Claim): Fields => ({
+  version: r.version,
   title: r.title,
   category: r.category,
   merchant: r.merchant,
@@ -325,6 +328,7 @@ function ClaimDetail({ id, onBack }: { id: number; onBack: () => void }) {
   const [baseline, setBaseline] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [action, setAction] = useState("");
+  const [actionVersion, setActionVersion] = useState(0);
   const [note, setNote] = useState("");
   const [paymentDate, setPaymentDate] = useState(today());
   const generation = useRef(0);
@@ -337,7 +341,16 @@ function ClaimDetail({ id, onBack }: { id: number; onBack: () => void }) {
         setError("");
       }
     } catch (e) {
-      if (generation.current === current) setError((e as Error).message);
+      if (generation.current === current) {
+        setClaim(null);
+        setAction("");
+        setConfirmed(false);
+        setError(
+          e instanceof TypeError
+            ? "网络连接失败，请检查后重试"
+            : (e as Error).message,
+        );
+      }
     }
   }, [id]);
   useEffect(() => {
@@ -389,22 +402,27 @@ function ClaimDetail({ id, onBack }: { id: number; onBack: () => void }) {
       }>("GET", `/reimbursements/${id}/events`),
     [id, claim?.updated_at],
   );
-  const mutate = async (verb: string, body: unknown) => {
+  const mutate = async (
+    verb: string,
+    body: Record<string, unknown>,
+    version = claim?.version,
+  ) => {
     generation.current++;
     const r = await request<{ claim: Claim }>(
       "POST",
       `/reimbursements/${id}/${verb}`,
-      body,
+      { ...body, version },
     );
     generation.current++;
     setClaim(r.claim);
     setConfirmed(false);
     notify("报销记录已更新");
   };
-  const change = (key: keyof Fields, value: string) =>
+  const change = (key: Exclude<keyof Fields, "version">, value: string) =>
     setEdit((v) => (v ? { ...v, [key]: value } : null));
   const startAction = (value: string) => {
     setAction(value);
+    setActionVersion(claim?.version ?? 0);
     setNote("");
     setPaymentDate(today());
   };
@@ -825,6 +843,7 @@ function ClaimDetail({ id, onBack }: { id: number; onBack: () => void }) {
               action === "recognize"
                 ? {}
                 : { note, paymentDate: action === "pay" ? paymentDate : "" },
+              actionVersion,
             );
           }}
         >

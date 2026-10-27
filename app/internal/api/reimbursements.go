@@ -268,17 +268,18 @@ func (h *apiHandler) reimbursementAction(action string) http.HandlerFunc {
 			return
 		}
 		var in struct {
+			Version     int    `json:"version"`
 			Confirmed   bool   `json:"confirmed"`
 			Note        string `json:"note"`
 			PaymentDate string `json:"paymentDate"`
 		}
 		decoder := json.NewDecoder(r.Body)
 		decoder.DisallowUnknownFields()
-		if decoder.Decode(&in) != nil {
+		if decoder.Decode(&in) != nil || in.Version <= 0 {
 			writeErr(w, 400, "操作参数无效")
 			return
 		}
-		if err = repo.DecideClaim(r.Context(), a, id, action, in.Note, in.PaymentDate, service.BusinessNow().Format("2006-01-02"), in.Confirmed); err != nil {
+		if err = repo.DecideClaim(r.Context(), a, id, action, in.Note, in.PaymentDate, service.BusinessNow().Format("2006-01-02"), in.Confirmed, in.Version); err != nil {
 			reimbursementError(w, err)
 			return
 		}
@@ -301,7 +302,16 @@ func (h *apiHandler) retryReimbursement(w http.ResponseWriter, r *http.Request) 
 		writeErr(w, 503, "识别服务尚未就绪，请联系管理员")
 		return
 	}
-	if err = repo.RetryClaimOCR(r.Context(), a, id, client.Model); err != nil {
+	var in struct {
+		Version int `json:"version"`
+	}
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&in) != nil || in.Version <= 0 {
+		writeErr(w, 400, "请刷新并提供当前报销版本")
+		return
+	}
+	if err = repo.RetryClaimOCR(r.Context(), a, id, client.Model, in.Version); err != nil {
 		reimbursementError(w, err)
 		return
 	}

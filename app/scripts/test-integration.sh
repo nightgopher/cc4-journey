@@ -21,8 +21,9 @@ done
 
 export PGPASSWORD="${DB_PASSWORD:-$(docker exec "$CC4_TEST_CONTAINER" printenv POSTGRES_PASSWORD)}"
 export CC4_TEST_DATABASE_URL="postgres://${CC4_TEST_USER}@${DB_HOST:-localhost}:${DB_PORT:-5433}/${CC4_TEST_DB}?sslmode=disable"
+filter=${CC4_TEST_FILTER:-'Test(BusinessIntegration|MCPBusinessIntegration|ReimbursementIntegration)$'}
 if [[ -n ${CC4_TEST_JSON:-} ]]; then
-  go test -race ./internal/api -run 'Test(BusinessIntegration|MCPBusinessIntegration|ReimbursementIntegration)$' -count=1 -json | tee "$CC4_TEST_JSON"
+  go test -race ./internal/api -run "$filter" -count=1 -json | tee "$CC4_TEST_JSON"
 else
-  go test -race ./internal/api -run 'Test(BusinessIntegration|MCPBusinessIntegration|ReimbursementIntegration)$' -count=1 -v
+  go test -race ./internal/api -run "$filter" -count=1 -v
 fi

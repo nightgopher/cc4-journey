@@ -31,7 +31,7 @@ func (a ClaimActor) CanRead(employee int, team *int) bool {
 	return a.ID == employee || a.Global() || (a.Reviewer() && a.TeamID != nil && team != nil && *a.TeamID == *team)
 }
 
-const claimProjection = `r.id,r.employee_id,e.name AS employee_name,e.team_id,r.title,r.category,r.merchant,r.invoice_number,r.invoice_code,
+const claimProjection = `r.id,r.version,r.employee_id,e.name AS employee_name,e.team_id,r.title,r.category,r.merchant,r.invoice_number,r.invoice_code,
  TO_CHAR(r.invoice_date,'YYYY-MM-DD') AS invoice_date,r.currency,r.invoice_total,r.amount,r.reason,r.human_edited,r.review_note,
  r.status,r.receipt_mime,r.receipt_pages,r.ocr_status,r.ocr_model,r.ocr_progress,r.ocr_result,r.ocr_error,r.confirmed_at,
  r.submitted_at,r.approved_by,r.approved_at,r.paid_by,r.paid_at,TO_CHAR(r.payment_date,'YYYY-MM-DD') AS payment_date,r.finance_record_id,
@@ -122,6 +122,7 @@ func CreateClaim(ctx context.Context, a ClaimActor, file, mime, hash, model stri
 }
 
 type ClaimInput struct {
+	Version       int      `json:"version"`
 	Title         string   `json:"title"`
 	Category      string   `json:"category"`
 	Merchant      string   `json:"merchant"`
@@ -151,6 +152,9 @@ func InvoiceKey(code, number string) *string {
 }
 
 func (in *ClaimInput) validate() error {
+	if in.Version <= 0 {
+		return errors.New("请刷新并提供当前报销版本")
+	}
 	in.Title = strings.TrimSpace(in.Title)
 	if in.Title == "" {
 		in.Title = "票据报销"
@@ -187,6 +191,7 @@ func (in *ClaimInput) validate() error {
 }
 
 type lockedClaim struct {
+	Version                                  int
 	Owner                                    int
 	Team                                     *int
 	Status, OCRStatus                        string
@@ -198,8 +203,8 @@ type lockedClaim struct {
 
 func lockClaim(ctx context.Context, tx pgx.Tx, id int) (lockedClaim, error) {
 	var r lockedClaim
-	err := tx.QueryRow(ctx, `SELECT r.employee_id,e.team_id,r.status,r.ocr_status,r.amount,r.invoice_total,r.invoice_date,r.merchant,r.invoice_number,r.invoice_code,r.currency,r.reason,r.finance_record_id
- FROM reimbursement_claims r JOIN employees e ON e.id=r.employee_id WHERE r.id=$1 FOR UPDATE OF r`, id).Scan(&r.Owner, &r.Team, &r.Status, &r.OCRStatus, &r.Amount, &r.Total, &r.Date, &r.Merchant, &r.Number, &r.Code, &r.Currency, &r.Reason, &r.Finance)
+	err := tx.QueryRow(ctx, `SELECT r.version,r.employee_id,e.team_id,r.status,r.ocr_status,r.amount,r.invoice_total,r.invoice_date,r.merchant,r.invoice_number,r.invoice_code,r.currency,r.reason,r.finance_record_id
+ FROM reimbursement_claims r JOIN employees e ON e.id=r.employee_id WHERE r.id=$1 FOR UPDATE OF r`, id).Scan(&r.Version, &r.Owner, &r.Team, &r.Status, &r.OCRStatus, &r.Amount, &r.Total, &r.Date, &r.Merchant, &r.Number, &r.Code, &r.Currency, &r.Reason, &r.Finance)
 	return r, err
 }
 
@@ -222,8 +227,11 @@ func UpdateClaim(ctx context.Context, a ClaimActor, id int, in ClaimInput) error
 	if r.Status != "draft" && r.Status != "rejected" {
 		return fmt.Errorf("%w: 只能修改草稿或被驳回的报销", ErrClaimConflict)
 	}
+	if r.Version != in.Version {
+		return fmt.Errorf("%w: 记录已更新，请刷新后重新核对", ErrClaimConflict)
+	}
 	_, err = tx.Exec(ctx, `UPDATE reimbursement_claims SET title=$2,category=$3,merchant=$4,invoice_number=$5,invoice_code=$6,invoice_key=$7,
- invoice_date=NULLIF($8::text,'')::date,currency=$9,invoice_total=$10,amount=$11,reason=$12,human_edited=true,confirmed_at=NULL,status='draft',updated_at=now() WHERE id=$1`,
+ invoice_date=NULLIF($8::text,'')::date,currency=$9,invoice_total=$10,amount=$11,reason=$12,human_edited=true,confirmed_at=NULL,status='draft',version=version+1,updated_at=now() WHERE id=$1`,
 		id, in.Title, in.Category, in.Merchant, in.InvoiceNumber, in.InvoiceCode, InvoiceKey(in.InvoiceCode, in.InvoiceNumber), in.InvoiceDate, in.Currency, in.InvoiceTotal, in.Amount, in.Reason)
 	if err != nil {
 		return err
@@ -234,7 +242,7 @@ func UpdateClaim(ctx context.Context, a ClaimActor, id int, in ClaimInput) error
 	return tx.Commit(ctx)
 }
 
-func DecideClaim(ctx context.Context, a ClaimActor, id int, action, note, paymentDate, today string, confirmed bool) error {
+func DecideClaim(ctx context.Context, a ClaimActor, id int, action, note, paymentDate, today string, confirmed bool, expectedVersion int) error {
 	if utf8.RuneCountInString(note) > 2000 {
 		return errors.New("说明过长")
 	}
@@ -251,6 +259,17 @@ func DecideClaim(ctx context.Context, a ClaimActor, id int, action, note, paymen
 		return ErrForbidden
 	}
 	owner := r.Owner == a.ID
+	// Replaying a completed payment is harmless; every new decision must bind
+	// to the exact claim version the actor reviewed, even after withdrawal.
+	if action == "pay" && r.Status == "paid" {
+		if owner || !a.Global() {
+			return ErrForbidden
+		}
+		return nil
+	}
+	if expectedVersion <= 0 || r.Version != expectedVersion {
+		return fmt.Errorf("%w: 记录已更新，请刷新后重新核对", ErrClaimConflict)
+	}
 	conflict := func(message string) error { return fmt.Errorf("%w: %s", ErrClaimConflict, message) }
 	switch action {
 	case "submit":
@@ -269,7 +288,7 @@ func DecideClaim(ctx context.Context, a ClaimActor, id int, action, note, paymen
 		if r.OCRStatus == "queued" || r.OCRStatus == "submitting" || r.OCRStatus == "running" {
 			return conflict("识别仍在进行，请完成后核对再提交")
 		}
-		_, err = tx.Exec(ctx, `UPDATE reimbursement_claims SET status='submitted',confirmed_at=now(),submitted_at=now(),invoice_key=$2,review_note='',updated_at=now() WHERE id=$1`, id, InvoiceKey(r.Code, r.Number))
+		_, err = tx.Exec(ctx, `UPDATE reimbursement_claims SET status='submitted',confirmed_at=now(),submitted_at=now(),invoice_key=$2,review_note='',version=version+1,updated_at=now() WHERE id=$1`, id, InvoiceKey(r.Code, r.Number))
 	case "approve", "reject":
 		if owner || !a.Reviewer() {
 			return ErrForbidden
@@ -281,9 +300,9 @@ func DecideClaim(ctx context.Context, a ClaimActor, id int, action, note, paymen
 			return errors.New("请填写驳回原因")
 		}
 		if action == "approve" {
-			_, err = tx.Exec(ctx, `UPDATE reimbursement_claims SET status='approved',approved_by=$2,approved_at=now(),review_note=$3,updated_at=now() WHERE id=$1`, id, a.ID, note)
+			_, err = tx.Exec(ctx, `UPDATE reimbursement_claims SET status='approved',approved_by=$2,approved_at=now(),review_note=$3,version=version+1,updated_at=now() WHERE id=$1`, id, a.ID, note)
 		} else {
-			_, err = tx.Exec(ctx, `UPDATE reimbursement_claims SET status='rejected',approved_by=NULL,approved_at=NULL,review_note=$2,updated_at=now() WHERE id=$1`, id, note)
+			_, err = tx.Exec(ctx, `UPDATE reimbursement_claims SET status='rejected',approved_by=NULL,approved_at=NULL,review_note=$2,version=version+1,updated_at=now() WHERE id=$1`, id, note)
 		}
 	case "withdraw", "cancel":
 		if !owner {
@@ -293,12 +312,12 @@ func DecideClaim(ctx context.Context, a ClaimActor, id int, action, note, paymen
 			if r.Status != "submitted" {
 				return conflict("只能撤回待审批报销")
 			}
-			_, err = tx.Exec(ctx, `UPDATE reimbursement_claims SET status='draft',confirmed_at=NULL,updated_at=now() WHERE id=$1`, id)
+			_, err = tx.Exec(ctx, `UPDATE reimbursement_claims SET status='draft',confirmed_at=NULL,version=version+1,updated_at=now() WHERE id=$1`, id)
 		} else {
 			if r.Status != "draft" && r.Status != "rejected" && r.Status != "submitted" {
 				return conflict("已批准或已付款报销不能撤销")
 			}
-			_, err = tx.Exec(ctx, `UPDATE reimbursement_claims SET status='cancelled',ocr_status='failed',ocr_error='报销已撤销',ocr_generation=ocr_generation+1,ocr_lease=NULL,ocr_locked_until=NULL,updated_at=now() WHERE id=$1`, id)
+			_, err = tx.Exec(ctx, `UPDATE reimbursement_claims SET status='cancelled',ocr_status='failed',ocr_error='报销已撤销',ocr_generation=ocr_generation+1,ocr_lease=NULL,ocr_locked_until=NULL,version=version+1,updated_at=now() WHERE id=$1`, id)
 		}
 	case "pay":
 		if owner || !a.Global() {
@@ -318,7 +337,7 @@ func DecideClaim(ctx context.Context, a ClaimActor, id int, action, note, paymen
  SELECT 'expense','员工报销',amount,$2::text::date,'报销#'||id||' · '||merchant||' · '||reason,'reimbursement-'||id,'reimbursement',employee_id,'confirmed','auto','onetime'
  FROM reimbursement_claims WHERE id=$1 RETURNING id`, id, paymentDate).Scan(&finance)
 		if err == nil {
-			_, err = tx.Exec(ctx, `UPDATE reimbursement_claims SET status='paid',finance_record_id=$2,paid_by=$3,paid_at=now(),payment_date=$4::text::date,updated_at=now() WHERE id=$1`, id, finance, a.ID, paymentDate)
+			_, err = tx.Exec(ctx, `UPDATE reimbursement_claims SET status='paid',finance_record_id=$2,paid_by=$3,paid_at=now(),payment_date=$4::text::date,version=version+1,updated_at=now() WHERE id=$1`, id, finance, a.ID, paymentDate)
 		}
 	default:
 		return errors.New("无效的报销操作")
@@ -345,7 +364,7 @@ func ClaimFile(ctx context.Context, a ClaimActor, id int) (string, string, error
 	return file, mime, err
 }
 
-func RetryClaimOCR(ctx context.Context, a ClaimActor, id int, model string) error {
+func RetryClaimOCR(ctx context.Context, a ClaimActor, id int, model string, expectedVersion int) error {
 	tx, err := Pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -358,11 +377,14 @@ func RetryClaimOCR(ctx context.Context, a ClaimActor, id int, model string) erro
 	if r.Owner != a.ID {
 		return ErrForbidden
 	}
+	if expectedVersion <= 0 || r.Version != expectedVersion {
+		return fmt.Errorf("%w: 记录已更新，请刷新后重新核对", ErrClaimConflict)
+	}
 	if (r.Status != "draft" && r.Status != "rejected") || (r.OCRStatus != "failed" && r.OCRStatus != "ready") {
 		return fmt.Errorf("%w: 当前不能重新识别", ErrClaimConflict)
 	}
 	_, err = tx.Exec(ctx, `UPDATE reimbursement_claims SET ocr_status='queued',ocr_model=$2,ocr_generation=ocr_generation+1,ocr_job_id=NULL,ocr_result=NULL,ocr_error=NULL,ocr_attempts=0,
- ocr_lease=NULL,ocr_locked_until=NULL,ocr_started_at=NULL,ocr_next_poll=now(),ocr_progress='{}',updated_at=now() WHERE id=$1`, id, model)
+ ocr_lease=NULL,ocr_locked_until=NULL,ocr_started_at=NULL,ocr_next_poll=now(),ocr_progress='{}',version=version+1,updated_at=now() WHERE id=$1`, id, model)
 	if err != nil {
 		return err
 	}
@@ -420,8 +442,8 @@ func SaveOCRJob(ctx context.Context, j OCRJob, state string, jobID *string, prog
 		progress = Object{}
 	}
 	rawProgress, _ := json.Marshal(progress)
-	tag, err := tx.Exec(ctx, `UPDATE reimbursement_claims SET ocr_status=$4,ocr_job_id=COALESCE($5,ocr_job_id),ocr_progress=$6,ocr_result=COALESCE($7::jsonb,ocr_result),
- ocr_error=NULLIF($8,''),ocr_attempts=CASE WHEN $8!='' THEN ocr_attempts+1 ELSE 0 END,ocr_next_poll=now()+interval '5 seconds',ocr_lease=NULL,ocr_locked_until=NULL,updated_at=now()
+	tag, err := tx.Exec(ctx, `UPDATE reimbursement_claims SET ocr_status=$4::text,ocr_job_id=COALESCE($5,ocr_job_id),ocr_progress=$6,ocr_result=COALESCE($7::jsonb,ocr_result),
+ version=version+CASE WHEN $4::text='ready' THEN 1 ELSE 0 END,ocr_error=NULLIF($8,''),ocr_attempts=CASE WHEN $8!='' THEN ocr_attempts+1 ELSE 0 END,ocr_next_poll=now()+interval '5 seconds',ocr_lease=NULL,ocr_locked_until=NULL,updated_at=now()
  WHERE id=$1 AND ocr_generation=$2 AND ocr_lease=$3`, j.ID, j.Generation, j.Lease, state, jobID, rawProgress, rawResult, message)
 	if err != nil {
 		return err
