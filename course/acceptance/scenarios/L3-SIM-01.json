@@ -1,0 +1,3064 @@
+{
+ "id": "L3-SIM-01",
+ "layer": "L3",
+ "title": "08 连续经营七日演练（2026-07-15 至 07-21）",
+ "rules": [
+  "R01",
+  "R02",
+  "R03",
+  "R04",
+  "R05",
+  "R06",
+  "R07",
+  "R08",
+  "R09",
+  "R10"
+ ],
+ "source": "app/simulation/run.py run_day()；映射与推导见 L3.md",
+ "baseline": {
+  "orders": 77,
+  "sales": 7623,
+  "inflow": 8323,
+  "outflow": 528.5
+ },
+ "steps": [
+  {
+   "check": "get_ledger",
+   "args": {
+    "from": "2026-07-15",
+    "to": "2026-07-21"
+   },
+   "as": "L0",
+   "event": "演练开始前的资金快照"
+  },
+  {
+   "do": "hire",
+   "args": {
+    "name": "验收{run}-senior",
+    "level": "a_level",
+    "date": "2026-07-15"
+   },
+   "as": "senior",
+   "event": "入职：资深销售（A）"
+  },
+  {
+   "do": "hire",
+   "args": {
+    "name": "验收{run}-growth",
+    "level": "c_level",
+    "date": "2026-07-15"
+   },
+   "as": "growth",
+   "event": "入职：成长销售（C）"
+  },
+  {
+   "do": "hire",
+   "args": {
+    "name": "验收{run}-settle",
+    "level": "trainee",
+    "date": "2026-07-15"
+   },
+   "as": "settle",
+   "event": "入职：离职结算员工（实习生）"
+  },
+  {
+   "do": "hire",
+   "args": {
+    "name": "验收{run}-hire0",
+    "level": "c_level",
+    "date": "2026-07-15"
+   },
+   "as": "hire0",
+   "event": "D0 入职：当日新销售（C）"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$hire0",
+    "date": "2026-07-15",
+    "count": 1
+   },
+   "event": "D0 录单：新销售 1 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$hire0",
+    "date": "2026-07-15"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R01"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$senior",
+    "date": "2026-07-15",
+    "count": 3
+   },
+   "event": "D0 录单：资深销售 3 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$senior",
+    "date": "2026-07-15"
+   },
+   "expect": {
+    "orders": 3,
+    "sales": 297,
+    "commission": 30
+   },
+   "rule": "R01",
+   "hint": "3 单的独立金标准提成 30"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-15",
+    "count": 1
+   },
+   "event": "D0 录单：成长销售 1 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-15"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R01"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-15"
+   },
+   "as": "o0_0",
+   "event": "D0 员工自录第 1 笔"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-15"
+   },
+   "as": "o0_1",
+   "event": "D0 员工自录第 2 笔"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-15"
+   },
+   "as": "o0_2",
+   "event": "D0 员工自录第 3 笔"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-15"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R02",
+   "hint": "待审订单不计入"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$o0_0"
+   },
+   "event": "D0 审核通过一笔"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-15"
+   },
+   "expect": {
+    "orders": 2,
+    "sales": 198,
+    "commission": 20
+   },
+   "rule": "R02"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$o0_0"
+   },
+   "expect_error": "REJECTED",
+   "rule": "R02",
+   "hint": "重复审核必须被拒绝"
+  },
+  {
+   "do": "reject_order",
+   "args": {
+    "order": "$o0_1"
+   },
+   "event": "D0 驳回一笔"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-15"
+   },
+   "expect": {
+    "orders": 2,
+    "sales": 198,
+    "commission": 20
+   },
+   "rule": "R02",
+   "hint": "驳回不计入"
+  },
+  {
+   "do": "delete_order",
+   "args": {
+    "order": "$o0_0"
+   },
+   "event": "D0 撤销已通过订单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-15"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R02",
+   "hint": "删除已通过订单后业绩回退"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-15"
+   },
+   "as": "o0_3",
+   "event": "D0 重新提交"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$o0_3"
+   },
+   "event": "D0 新订单审核通过"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-15"
+   },
+   "expect": {
+    "orders": 2,
+    "sales": 198,
+    "commission": 20
+   },
+   "rule": "R02",
+   "hint": "一笔通过、一笔驳回、一笔待审后只增加 1 单"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$settle",
+    "date": "2026-07-15",
+    "count": 5
+   },
+   "event": "D0 录单：结算员工 5 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$settle",
+    "date": "2026-07-15"
+   },
+   "expect": {
+    "orders": 5,
+    "sales": 495,
+    "commission": 70
+   },
+   "rule": "R01"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$settle",
+    "month": "2026-07"
+   },
+   "expect": {
+    "commission": 70,
+    "total": 70
+   },
+   "rule": "R06",
+   "hint": "实习生 5 单离职工资 70 元"
+  },
+  {
+   "do": "pay_salary",
+   "args": {
+    "emp": "$settle",
+    "month": "2026-07",
+    "date": "2026-07-15"
+   },
+   "event": "D0 工资：发放 70 元工资"
+  },
+  {
+   "check": "get_ledger",
+   "args": {
+    "from": "2026-07-15",
+    "to": "2026-07-21"
+   },
+   "rule": "R09",
+   "hint": "发放 70 元工资",
+   "expect_delta": {
+    "since": "L0",
+    "outflow": 70
+   }
+  },
+  {
+   "do": "pay_salary",
+   "args": {
+    "emp": "$settle",
+    "month": "2026-07",
+    "date": "2026-07-15"
+   },
+   "event": "D0 工资：重复发放不增加流出"
+  },
+  {
+   "check": "get_ledger",
+   "args": {
+    "from": "2026-07-15",
+    "to": "2026-07-21"
+   },
+   "rule": "R09",
+   "hint": "重复发放不增加流出",
+   "expect_delta": {
+    "since": "L0",
+    "outflow": 70
+   }
+  },
+  {
+   "do": "revoke_salary",
+   "args": {
+    "emp": "$settle",
+    "month": "2026-07"
+   },
+   "event": "D0 工资：撤销后流出回退"
+  },
+  {
+   "check": "get_ledger",
+   "args": {
+    "from": "2026-07-15",
+    "to": "2026-07-21"
+   },
+   "rule": "R09",
+   "hint": "撤销后流出回退",
+   "expect_delta": {
+    "since": "L0",
+    "outflow": 0
+   }
+  },
+  {
+   "do": "pay_salary",
+   "args": {
+    "emp": "$settle",
+    "month": "2026-07",
+    "date": "2026-07-15"
+   },
+   "event": "D0 工资：再次发放"
+  },
+  {
+   "check": "get_ledger",
+   "args": {
+    "from": "2026-07-15",
+    "to": "2026-07-21"
+   },
+   "rule": "R09",
+   "hint": "再次发放",
+   "expect_delta": {
+    "since": "L0",
+    "outflow": 70
+   }
+  },
+  {
+   "do": "create_receivable",
+   "args": {
+    "amount": 100,
+    "date": "2026-07-15"
+   },
+   "as": "recv0",
+   "event": "D0 财务：应收 100"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$recv0",
+    "amount": 30,
+    "date": "2026-07-15"
+   },
+   "event": "D0 首款 30"
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$recv0"
+   },
+   "expect": {
+    "remaining": 70
+   },
+   "rule": "R08"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$recv0",
+    "amount": 71,
+    "date": "2026-07-15"
+   },
+   "expect_error": "REJECTED",
+   "rule": "R08",
+   "hint": "超收必须被拒绝"
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$recv0"
+   },
+   "expect": {
+    "remaining": 70
+   },
+   "rule": "R08",
+   "hint": "超收被拒后余额不变"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$recv0",
+    "amount": 70,
+    "date": "2026-07-15"
+   },
+   "event": "D0 尾款 70"
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$recv0"
+   },
+   "expect": {
+    "remaining": 0
+   },
+   "rule": "R08"
+  },
+  {
+   "do": "record_expense",
+   "args": {
+    "amount": 65.5,
+    "date": "2026-07-15"
+   },
+   "event": "D0 财务：运营支出 65.50"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$senior",
+    "month": "2026-07"
+   },
+   "expect": {
+    "base": 95,
+    "bonus": 0,
+    "commission": 30,
+    "total": 125
+   },
+   "rule": "R05",
+   "hint": "A级：底薪按工作日有效出勤折算（半天 0.5），加逐日提成"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$growth",
+    "month": "2026-07"
+   },
+   "expect": {
+    "base": 90,
+    "commission": 20,
+    "total": 110
+   },
+   "rule": "R03",
+   "hint": "按月末等级：C 前3个工作日×30 / B 6×88 / A 底薪折算"
+  },
+  {
+   "check": "get_ledger",
+   "args": {
+    "from": "2026-07-15",
+    "to": "2026-07-21"
+   },
+   "rule": "R10",
+   "hint": "D0 累计：流入 = 订单销售 + 回款；流出 = 费用 + 已发工资",
+   "expect_delta": {
+    "since": "L0",
+    "inflow": 1189,
+    "outflow": 135.5
+   }
+  },
+  {
+   "do": "hire",
+   "args": {
+    "name": "验收{run}-hire1",
+    "level": "c_level",
+    "date": "2026-07-16"
+   },
+   "as": "hire1",
+   "event": "D1 入职：当日新销售（C）"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$hire1",
+    "date": "2026-07-16",
+    "count": 1
+   },
+   "event": "D1 录单：新销售 1 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$hire1",
+    "date": "2026-07-16"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R01"
+  },
+  {
+   "do": "approve_leave",
+   "args": {
+    "emp": "$hire1",
+    "date": "2026-07-16"
+   },
+   "event": "D1 请假：批准后录 0 单"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$hire1",
+    "date": "2026-07-16",
+    "count": 0
+   },
+   "event": "D1 请假日补录 0 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$hire1",
+    "date": "2026-07-16"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R07",
+   "hint": "请假不改变已录订单"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$senior",
+    "date": "2026-07-16",
+    "count": 5
+   },
+   "event": "D1 录单：资深销售 5 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$senior",
+    "date": "2026-07-16"
+   },
+   "expect": {
+    "orders": 5,
+    "sales": 495,
+    "commission": 70
+   },
+   "rule": "R01",
+   "hint": "5 单的独立金标准提成 70"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-16",
+    "count": 1
+   },
+   "event": "D1 录单：成长销售 1 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-16"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R01"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-16"
+   },
+   "as": "o1_0",
+   "event": "D1 员工自录第 1 笔"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-16"
+   },
+   "as": "o1_1",
+   "event": "D1 员工自录第 2 笔"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-16"
+   },
+   "as": "o1_2",
+   "event": "D1 员工自录第 3 笔"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-16"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R02",
+   "hint": "待审订单不计入"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$o1_0"
+   },
+   "event": "D1 审核通过一笔"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-16"
+   },
+   "expect": {
+    "orders": 2,
+    "sales": 198,
+    "commission": 20
+   },
+   "rule": "R02"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$o1_0"
+   },
+   "expect_error": "REJECTED",
+   "rule": "R02",
+   "hint": "重复审核必须被拒绝"
+  },
+  {
+   "do": "reject_order",
+   "args": {
+    "order": "$o1_1"
+   },
+   "event": "D1 驳回一笔"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-16"
+   },
+   "expect": {
+    "orders": 2,
+    "sales": 198,
+    "commission": 20
+   },
+   "rule": "R02",
+   "hint": "驳回不计入"
+  },
+  {
+   "do": "delete_order",
+   "args": {
+    "order": "$o1_0"
+   },
+   "event": "D1 撤销已通过订单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-16"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R02",
+   "hint": "删除已通过订单后业绩回退"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-16"
+   },
+   "as": "o1_3",
+   "event": "D1 重新提交"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$o1_3"
+   },
+   "event": "D1 新订单审核通过"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-16"
+   },
+   "expect": {
+    "orders": 2,
+    "sales": 198,
+    "commission": 20
+   },
+   "rule": "R02",
+   "hint": "一笔通过、一笔驳回、一笔待审后只增加 1 单"
+  },
+  {
+   "do": "create_receivable",
+   "args": {
+    "amount": 100,
+    "date": "2026-07-16"
+   },
+   "as": "recv1",
+   "event": "D1 财务：应收 100"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$recv1",
+    "amount": 30,
+    "date": "2026-07-16"
+   },
+   "event": "D1 首款 30"
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$recv1"
+   },
+   "expect": {
+    "remaining": 70
+   },
+   "rule": "R08"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$recv1",
+    "amount": 71,
+    "date": "2026-07-16"
+   },
+   "expect_error": "REJECTED",
+   "rule": "R08",
+   "hint": "超收必须被拒绝"
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$recv1"
+   },
+   "expect": {
+    "remaining": 70
+   },
+   "rule": "R08",
+   "hint": "超收被拒后余额不变"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$recv1",
+    "amount": 70,
+    "date": "2026-07-16"
+   },
+   "event": "D1 尾款 70"
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$recv1"
+   },
+   "expect": {
+    "remaining": 0
+   },
+   "rule": "R08"
+  },
+  {
+   "do": "record_expense",
+   "args": {
+    "amount": 65.5,
+    "date": "2026-07-16"
+   },
+   "event": "D1 财务：运营支出 65.50"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$senior",
+    "month": "2026-07"
+   },
+   "expect": {
+    "base": 191,
+    "bonus": 0,
+    "commission": 100,
+    "total": 291
+   },
+   "rule": "R05",
+   "hint": "A级：底薪按工作日有效出勤折算（半天 0.5），加逐日提成"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$growth",
+    "month": "2026-07"
+   },
+   "expect": {
+    "base": 90,
+    "commission": 40,
+    "total": 130
+   },
+   "rule": "R03",
+   "hint": "按月末等级：C 前3个工作日×30 / B 6×88 / A 底薪折算"
+  },
+  {
+   "check": "get_ledger",
+   "args": {
+    "from": "2026-07-15",
+    "to": "2026-07-21"
+   },
+   "rule": "R10",
+   "hint": "D1 累计：流入 = 订单销售 + 回款；流出 = 费用 + 已发工资",
+   "expect_delta": {
+    "since": "L0",
+    "inflow": 2081,
+    "outflow": 201.0
+   }
+  },
+  {
+   "do": "hire",
+   "args": {
+    "name": "验收{run}-hire2",
+    "level": "c_level",
+    "date": "2026-07-17"
+   },
+   "as": "hire2",
+   "event": "D2 入职：当日新销售（C）"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$hire2",
+    "date": "2026-07-17",
+    "count": 1
+   },
+   "event": "D2 录单：新销售 1 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$hire2",
+    "date": "2026-07-17"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R01"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$senior",
+    "date": "2026-07-17",
+    "count": 8
+   },
+   "event": "D2 录单：资深销售 8 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$senior",
+    "date": "2026-07-17"
+   },
+   "expect": {
+    "orders": 8,
+    "sales": 792,
+    "commission": 160
+   },
+   "rule": "R01",
+   "hint": "8 单的独立金标准提成 160"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-17",
+    "count": 1
+   },
+   "event": "D2 录单：成长销售 1 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-17"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R01"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-17"
+   },
+   "as": "o2_0",
+   "event": "D2 员工自录第 1 笔"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-17"
+   },
+   "as": "o2_1",
+   "event": "D2 员工自录第 2 笔"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-17"
+   },
+   "as": "o2_2",
+   "event": "D2 员工自录第 3 笔"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-17"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R02",
+   "hint": "待审订单不计入"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$o2_0"
+   },
+   "event": "D2 审核通过一笔"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-17"
+   },
+   "expect": {
+    "orders": 2,
+    "sales": 198,
+    "commission": 20
+   },
+   "rule": "R02"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$o2_0"
+   },
+   "expect_error": "REJECTED",
+   "rule": "R02",
+   "hint": "重复审核必须被拒绝"
+  },
+  {
+   "do": "reject_order",
+   "args": {
+    "order": "$o2_1"
+   },
+   "event": "D2 驳回一笔"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-17"
+   },
+   "expect": {
+    "orders": 2,
+    "sales": 198,
+    "commission": 20
+   },
+   "rule": "R02",
+   "hint": "驳回不计入"
+  },
+  {
+   "do": "delete_order",
+   "args": {
+    "order": "$o2_0"
+   },
+   "event": "D2 撤销已通过订单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-17"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R02",
+   "hint": "删除已通过订单后业绩回退"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-17"
+   },
+   "as": "o2_3",
+   "event": "D2 重新提交"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$o2_3"
+   },
+   "event": "D2 新订单审核通过"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-17"
+   },
+   "expect": {
+    "orders": 2,
+    "sales": 198,
+    "commission": 20
+   },
+   "rule": "R02",
+   "hint": "一笔通过、一笔驳回、一笔待审后只增加 1 单"
+  },
+  {
+   "do": "record_attendance",
+   "args": {
+    "emp": "$senior",
+    "date": "2026-07-17",
+    "status": "half"
+   },
+   "event": "D2 考勤：资深销售半天"
+  },
+  {
+   "do": "create_receivable",
+   "args": {
+    "amount": 100,
+    "date": "2026-07-17"
+   },
+   "as": "recv2",
+   "event": "D2 财务：应收 100"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$recv2",
+    "amount": 30,
+    "date": "2026-07-17"
+   },
+   "event": "D2 首款 30"
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$recv2"
+   },
+   "expect": {
+    "remaining": 70
+   },
+   "rule": "R08"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$recv2",
+    "amount": 71,
+    "date": "2026-07-17"
+   },
+   "expect_error": "REJECTED",
+   "rule": "R08",
+   "hint": "超收必须被拒绝"
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$recv2"
+   },
+   "expect": {
+    "remaining": 70
+   },
+   "rule": "R08",
+   "hint": "超收被拒后余额不变"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$recv2",
+    "amount": 70,
+    "date": "2026-07-17"
+   },
+   "event": "D2 尾款 70"
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$recv2"
+   },
+   "expect": {
+    "remaining": 0
+   },
+   "rule": "R08"
+  },
+  {
+   "do": "record_expense",
+   "args": {
+    "amount": 65.5,
+    "date": "2026-07-17"
+   },
+   "event": "D2 财务：运营支出 65.50"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$senior",
+    "month": "2026-07"
+   },
+   "expect": {
+    "base": 239,
+    "bonus": 0,
+    "commission": 260,
+    "total": 499
+   },
+   "rule": "R05",
+   "hint": "A级：底薪按工作日有效出勤折算（半天 0.5），加逐日提成"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$growth",
+    "month": "2026-07"
+   },
+   "expect": {
+    "base": 90,
+    "commission": 60,
+    "total": 150
+   },
+   "rule": "R03",
+   "hint": "按月末等级：C 前3个工作日×30 / B 6×88 / A 底薪折算"
+  },
+  {
+   "check": "get_ledger",
+   "args": {
+    "from": "2026-07-15",
+    "to": "2026-07-21"
+   },
+   "rule": "R10",
+   "hint": "D2 累计：流入 = 订单销售 + 回款；流出 = 费用 + 已发工资",
+   "expect_delta": {
+    "since": "L0",
+    "inflow": 3270,
+    "outflow": 266.5
+   }
+  },
+  {
+   "do": "hire",
+   "args": {
+    "name": "验收{run}-hire3",
+    "level": "c_level",
+    "date": "2026-07-18"
+   },
+   "as": "hire3",
+   "event": "D3 入职：当日新销售（C）"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$hire3",
+    "date": "2026-07-18",
+    "count": 1
+   },
+   "event": "D3 录单：新销售 1 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$hire3",
+    "date": "2026-07-18"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R01"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$senior",
+    "date": "2026-07-18",
+    "count": 3
+   },
+   "event": "D3 录单：资深销售 3 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$senior",
+    "date": "2026-07-18"
+   },
+   "expect": {
+    "orders": 3,
+    "sales": 297,
+    "commission": 30
+   },
+   "rule": "R01",
+   "hint": "3 单的独立金标准提成 30"
+  },
+  {
+   "do": "promote",
+   "args": {
+    "emp": "$growth",
+    "level": "b_level",
+    "date": "2026-07-18"
+   },
+   "event": "D3 职级流转：成长销售 → b_level"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-18",
+    "count": 5
+   },
+   "event": "D3 录单：成长销售 5 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-18"
+   },
+   "expect": {
+    "orders": 5,
+    "sales": 495,
+    "commission": 70
+   },
+   "rule": "R01"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-18"
+   },
+   "as": "o3_0",
+   "event": "D3 员工自录第 1 笔"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-18"
+   },
+   "as": "o3_1",
+   "event": "D3 员工自录第 2 笔"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-18"
+   },
+   "as": "o3_2",
+   "event": "D3 员工自录第 3 笔"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-18"
+   },
+   "expect": {
+    "orders": 5,
+    "sales": 495,
+    "commission": 70
+   },
+   "rule": "R02",
+   "hint": "待审订单不计入"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$o3_0"
+   },
+   "event": "D3 审核通过一笔"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-18"
+   },
+   "expect": {
+    "orders": 6,
+    "sales": 594,
+    "commission": 100
+   },
+   "rule": "R02"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$o3_0"
+   },
+   "expect_error": "REJECTED",
+   "rule": "R02",
+   "hint": "重复审核必须被拒绝"
+  },
+  {
+   "do": "reject_order",
+   "args": {
+    "order": "$o3_1"
+   },
+   "event": "D3 驳回一笔"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-18"
+   },
+   "expect": {
+    "orders": 6,
+    "sales": 594,
+    "commission": 100
+   },
+   "rule": "R02",
+   "hint": "驳回不计入"
+  },
+  {
+   "do": "delete_order",
+   "args": {
+    "order": "$o3_0"
+   },
+   "event": "D3 撤销已通过订单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-18"
+   },
+   "expect": {
+    "orders": 5,
+    "sales": 495,
+    "commission": 70
+   },
+   "rule": "R02",
+   "hint": "删除已通过订单后业绩回退"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-18"
+   },
+   "as": "o3_3",
+   "event": "D3 重新提交"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$o3_3"
+   },
+   "event": "D3 新订单审核通过"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-18"
+   },
+   "expect": {
+    "orders": 6,
+    "sales": 594,
+    "commission": 100
+   },
+   "rule": "R02",
+   "hint": "一笔通过、一笔驳回、一笔待审后只增加 1 单"
+  },
+  {
+   "do": "create_receivable",
+   "args": {
+    "amount": 100,
+    "date": "2026-07-18"
+   },
+   "as": "recv3",
+   "event": "D3 财务：应收 100"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$recv3",
+    "amount": 30,
+    "date": "2026-07-18"
+   },
+   "event": "D3 首款 30"
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$recv3"
+   },
+   "expect": {
+    "remaining": 70
+   },
+   "rule": "R08"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$recv3",
+    "amount": 71,
+    "date": "2026-07-18"
+   },
+   "expect_error": "REJECTED",
+   "rule": "R08",
+   "hint": "超收必须被拒绝"
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$recv3"
+   },
+   "expect": {
+    "remaining": 70
+   },
+   "rule": "R08",
+   "hint": "超收被拒后余额不变"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$recv3",
+    "amount": 70,
+    "date": "2026-07-18"
+   },
+   "event": "D3 尾款 70"
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$recv3"
+   },
+   "expect": {
+    "remaining": 0
+   },
+   "rule": "R08"
+  },
+  {
+   "do": "record_expense",
+   "args": {
+    "amount": 65.5,
+    "date": "2026-07-18"
+   },
+   "event": "D3 财务：运营支出 65.50"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$senior",
+    "month": "2026-07"
+   },
+   "expect": {
+    "base": 239,
+    "bonus": 0,
+    "commission": 290,
+    "total": 529
+   },
+   "rule": "R05",
+   "hint": "A级：底薪按工作日有效出勤折算（半天 0.5），加逐日提成"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$growth",
+    "month": "2026-07"
+   },
+   "expect": {
+    "base": 528,
+    "commission": 160,
+    "total": 688
+   },
+   "rule": "R04",
+   "hint": "按月末等级：C 前3个工作日×30 / B 6×88 / A 底薪折算"
+  },
+  {
+   "check": "get_ledger",
+   "args": {
+    "from": "2026-07-15",
+    "to": "2026-07-21"
+   },
+   "rule": "R10",
+   "hint": "D3 累计：流入 = 订单销售 + 回款；流出 = 费用 + 已发工资",
+   "expect_delta": {
+    "since": "L0",
+    "inflow": 4360,
+    "outflow": 332.0
+   }
+  },
+  {
+   "do": "hire",
+   "args": {
+    "name": "验收{run}-hire4",
+    "level": "c_level",
+    "date": "2026-07-19"
+   },
+   "as": "hire4",
+   "event": "D4 入职：当日新销售（C）"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$hire4",
+    "date": "2026-07-19",
+    "count": 1
+   },
+   "event": "D4 录单：新销售 1 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$hire4",
+    "date": "2026-07-19"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R01"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$senior",
+    "date": "2026-07-19",
+    "count": 5
+   },
+   "event": "D4 录单：资深销售 5 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$senior",
+    "date": "2026-07-19"
+   },
+   "expect": {
+    "orders": 5,
+    "sales": 495,
+    "commission": 70
+   },
+   "rule": "R01",
+   "hint": "5 单的独立金标准提成 70"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-19",
+    "count": 5
+   },
+   "event": "D4 录单：成长销售 5 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-19"
+   },
+   "expect": {
+    "orders": 5,
+    "sales": 495,
+    "commission": 70
+   },
+   "rule": "R01"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-19"
+   },
+   "as": "o4_0",
+   "event": "D4 员工自录第 1 笔"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-19"
+   },
+   "as": "o4_1",
+   "event": "D4 员工自录第 2 笔"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-19"
+   },
+   "as": "o4_2",
+   "event": "D4 员工自录第 3 笔"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-19"
+   },
+   "expect": {
+    "orders": 5,
+    "sales": 495,
+    "commission": 70
+   },
+   "rule": "R02",
+   "hint": "待审订单不计入"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$o4_0"
+   },
+   "event": "D4 审核通过一笔"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-19"
+   },
+   "expect": {
+    "orders": 6,
+    "sales": 594,
+    "commission": 100
+   },
+   "rule": "R02"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$o4_0"
+   },
+   "expect_error": "REJECTED",
+   "rule": "R02",
+   "hint": "重复审核必须被拒绝"
+  },
+  {
+   "do": "reject_order",
+   "args": {
+    "order": "$o4_1"
+   },
+   "event": "D4 驳回一笔"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-19"
+   },
+   "expect": {
+    "orders": 6,
+    "sales": 594,
+    "commission": 100
+   },
+   "rule": "R02",
+   "hint": "驳回不计入"
+  },
+  {
+   "do": "delete_order",
+   "args": {
+    "order": "$o4_0"
+   },
+   "event": "D4 撤销已通过订单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-19"
+   },
+   "expect": {
+    "orders": 5,
+    "sales": 495,
+    "commission": 70
+   },
+   "rule": "R02",
+   "hint": "删除已通过订单后业绩回退"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-19"
+   },
+   "as": "o4_3",
+   "event": "D4 重新提交"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$o4_3"
+   },
+   "event": "D4 新订单审核通过"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-19"
+   },
+   "expect": {
+    "orders": 6,
+    "sales": 594,
+    "commission": 100
+   },
+   "rule": "R02",
+   "hint": "一笔通过、一笔驳回、一笔待审后只增加 1 单"
+  },
+  {
+   "do": "create_receivable",
+   "args": {
+    "amount": 100,
+    "date": "2026-07-19"
+   },
+   "as": "recv4",
+   "event": "D4 财务：应收 100"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$recv4",
+    "amount": 30,
+    "date": "2026-07-19"
+   },
+   "event": "D4 首款 30"
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$recv4"
+   },
+   "expect": {
+    "remaining": 70
+   },
+   "rule": "R08"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$recv4",
+    "amount": 71,
+    "date": "2026-07-19"
+   },
+   "expect_error": "REJECTED",
+   "rule": "R08",
+   "hint": "超收必须被拒绝"
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$recv4"
+   },
+   "expect": {
+    "remaining": 70
+   },
+   "rule": "R08",
+   "hint": "超收被拒后余额不变"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$recv4",
+    "amount": 70,
+    "date": "2026-07-19"
+   },
+   "event": "D4 尾款 70"
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$recv4"
+   },
+   "expect": {
+    "remaining": 0
+   },
+   "rule": "R08"
+  },
+  {
+   "do": "record_expense",
+   "args": {
+    "amount": 65.5,
+    "date": "2026-07-19"
+   },
+   "event": "D4 财务：运营支出 65.50"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$senior",
+    "month": "2026-07"
+   },
+   "expect": {
+    "base": 239,
+    "bonus": 0,
+    "commission": 360,
+    "total": 599
+   },
+   "rule": "R05",
+   "hint": "A级：底薪按工作日有效出勤折算（半天 0.5），加逐日提成"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$growth",
+    "month": "2026-07"
+   },
+   "expect": {
+    "base": 528,
+    "commission": 260,
+    "total": 788
+   },
+   "rule": "R04",
+   "hint": "按月末等级：C 前3个工作日×30 / B 6×88 / A 底薪折算"
+  },
+  {
+   "check": "get_ledger",
+   "args": {
+    "from": "2026-07-15",
+    "to": "2026-07-21"
+   },
+   "rule": "R10",
+   "hint": "D4 累计：流入 = 订单销售 + 回款；流出 = 费用 + 已发工资",
+   "expect_delta": {
+    "since": "L0",
+    "inflow": 5648,
+    "outflow": 397.5
+   }
+  },
+  {
+   "do": "hire",
+   "args": {
+    "name": "验收{run}-hire5",
+    "level": "c_level",
+    "date": "2026-07-20"
+   },
+   "as": "hire5",
+   "event": "D5 入职：当日新销售（C）"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$hire5",
+    "date": "2026-07-20",
+    "count": 1
+   },
+   "event": "D5 录单：新销售 1 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$hire5",
+    "date": "2026-07-20"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R01"
+  },
+  {
+   "do": "approve_leave",
+   "args": {
+    "emp": "$hire5",
+    "date": "2026-07-20"
+   },
+   "event": "D5 请假：批准后录 0 单"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$hire5",
+    "date": "2026-07-20",
+    "count": 0
+   },
+   "event": "D5 请假日补录 0 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$hire5",
+    "date": "2026-07-20"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R07",
+   "hint": "请假不改变已录订单"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$senior",
+    "date": "2026-07-20",
+    "count": 8
+   },
+   "event": "D5 录单：资深销售 8 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$senior",
+    "date": "2026-07-20"
+   },
+   "expect": {
+    "orders": 8,
+    "sales": 792,
+    "commission": 160
+   },
+   "rule": "R01",
+   "hint": "8 单的独立金标准提成 160"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-20",
+    "count": 5
+   },
+   "event": "D5 录单：成长销售 5 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-20"
+   },
+   "expect": {
+    "orders": 5,
+    "sales": 495,
+    "commission": 70
+   },
+   "rule": "R01"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-20"
+   },
+   "as": "o5_0",
+   "event": "D5 员工自录第 1 笔"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-20"
+   },
+   "as": "o5_1",
+   "event": "D5 员工自录第 2 笔"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-20"
+   },
+   "as": "o5_2",
+   "event": "D5 员工自录第 3 笔"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-20"
+   },
+   "expect": {
+    "orders": 5,
+    "sales": 495,
+    "commission": 70
+   },
+   "rule": "R02",
+   "hint": "待审订单不计入"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$o5_0"
+   },
+   "event": "D5 审核通过一笔"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-20"
+   },
+   "expect": {
+    "orders": 6,
+    "sales": 594,
+    "commission": 100
+   },
+   "rule": "R02"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$o5_0"
+   },
+   "expect_error": "REJECTED",
+   "rule": "R02",
+   "hint": "重复审核必须被拒绝"
+  },
+  {
+   "do": "reject_order",
+   "args": {
+    "order": "$o5_1"
+   },
+   "event": "D5 驳回一笔"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-20"
+   },
+   "expect": {
+    "orders": 6,
+    "sales": 594,
+    "commission": 100
+   },
+   "rule": "R02",
+   "hint": "驳回不计入"
+  },
+  {
+   "do": "delete_order",
+   "args": {
+    "order": "$o5_0"
+   },
+   "event": "D5 撤销已通过订单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-20"
+   },
+   "expect": {
+    "orders": 5,
+    "sales": 495,
+    "commission": 70
+   },
+   "rule": "R02",
+   "hint": "删除已通过订单后业绩回退"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-20"
+   },
+   "as": "o5_3",
+   "event": "D5 重新提交"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$o5_3"
+   },
+   "event": "D5 新订单审核通过"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-20"
+   },
+   "expect": {
+    "orders": 6,
+    "sales": 594,
+    "commission": 100
+   },
+   "rule": "R02",
+   "hint": "一笔通过、一笔驳回、一笔待审后只增加 1 单"
+  },
+  {
+   "do": "create_receivable",
+   "args": {
+    "amount": 100,
+    "date": "2026-07-20"
+   },
+   "as": "recv5",
+   "event": "D5 财务：应收 100"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$recv5",
+    "amount": 30,
+    "date": "2026-07-20"
+   },
+   "event": "D5 首款 30"
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$recv5"
+   },
+   "expect": {
+    "remaining": 70
+   },
+   "rule": "R08"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$recv5",
+    "amount": 71,
+    "date": "2026-07-20"
+   },
+   "expect_error": "REJECTED",
+   "rule": "R08",
+   "hint": "超收必须被拒绝"
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$recv5"
+   },
+   "expect": {
+    "remaining": 70
+   },
+   "rule": "R08",
+   "hint": "超收被拒后余额不变"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$recv5",
+    "amount": 70,
+    "date": "2026-07-20"
+   },
+   "event": "D5 尾款 70"
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$recv5"
+   },
+   "expect": {
+    "remaining": 0
+   },
+   "rule": "R08"
+  },
+  {
+   "do": "record_expense",
+   "args": {
+    "amount": 65.5,
+    "date": "2026-07-20"
+   },
+   "event": "D5 财务：运营支出 65.50"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$senior",
+    "month": "2026-07"
+   },
+   "expect": {
+    "base": 334,
+    "bonus": 0,
+    "commission": 520,
+    "total": 854
+   },
+   "rule": "R05",
+   "hint": "A级：底薪按工作日有效出勤折算（半天 0.5），加逐日提成"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$growth",
+    "month": "2026-07"
+   },
+   "expect": {
+    "base": 528,
+    "commission": 360,
+    "total": 888
+   },
+   "rule": "R04",
+   "hint": "按月末等级：C 前3个工作日×30 / B 6×88 / A 底薪折算"
+  },
+  {
+   "check": "get_ledger",
+   "args": {
+    "from": "2026-07-15",
+    "to": "2026-07-21"
+   },
+   "rule": "R10",
+   "hint": "D5 累计：流入 = 订单销售 + 回款；流出 = 费用 + 已发工资",
+   "expect_delta": {
+    "since": "L0",
+    "inflow": 7233,
+    "outflow": 463.0
+   }
+  },
+  {
+   "do": "hire",
+   "args": {
+    "name": "验收{run}-hire6",
+    "level": "c_level",
+    "date": "2026-07-21"
+   },
+   "as": "hire6",
+   "event": "D6 入职：当日新销售（C）"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$hire6",
+    "date": "2026-07-21",
+    "count": 1
+   },
+   "event": "D6 录单：新销售 1 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$hire6",
+    "date": "2026-07-21"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R01"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$senior",
+    "date": "2026-07-21",
+    "count": 3
+   },
+   "event": "D6 录单：资深销售 3 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$senior",
+    "date": "2026-07-21"
+   },
+   "expect": {
+    "orders": 3,
+    "sales": 297,
+    "commission": 30
+   },
+   "rule": "R01",
+   "hint": "3 单的独立金标准提成 30"
+  },
+  {
+   "do": "promote",
+   "args": {
+    "emp": "$growth",
+    "level": "a_level",
+    "date": "2026-07-21"
+   },
+   "event": "D6 职级流转：成长销售 → a_level"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-21",
+    "count": 5
+   },
+   "event": "D6 录单：成长销售 5 单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-21"
+   },
+   "expect": {
+    "orders": 5,
+    "sales": 495,
+    "commission": 70
+   },
+   "rule": "R01"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-21"
+   },
+   "as": "o6_0",
+   "event": "D6 员工自录第 1 笔"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-21"
+   },
+   "as": "o6_1",
+   "event": "D6 员工自录第 2 笔"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-21"
+   },
+   "as": "o6_2",
+   "event": "D6 员工自录第 3 笔"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-21"
+   },
+   "expect": {
+    "orders": 5,
+    "sales": 495,
+    "commission": 70
+   },
+   "rule": "R02",
+   "hint": "待审订单不计入"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$o6_0"
+   },
+   "event": "D6 审核通过一笔"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-21"
+   },
+   "expect": {
+    "orders": 6,
+    "sales": 594,
+    "commission": 100
+   },
+   "rule": "R02"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$o6_0"
+   },
+   "expect_error": "REJECTED",
+   "rule": "R02",
+   "hint": "重复审核必须被拒绝"
+  },
+  {
+   "do": "reject_order",
+   "args": {
+    "order": "$o6_1"
+   },
+   "event": "D6 驳回一笔"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-21"
+   },
+   "expect": {
+    "orders": 6,
+    "sales": 594,
+    "commission": 100
+   },
+   "rule": "R02",
+   "hint": "驳回不计入"
+  },
+  {
+   "do": "delete_order",
+   "args": {
+    "order": "$o6_0"
+   },
+   "event": "D6 撤销已通过订单"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-21"
+   },
+   "expect": {
+    "orders": 5,
+    "sales": 495,
+    "commission": 70
+   },
+   "rule": "R02",
+   "hint": "删除已通过订单后业绩回退"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-21"
+   },
+   "as": "o6_3",
+   "event": "D6 重新提交"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$o6_3"
+   },
+   "event": "D6 新订单审核通过"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-21"
+   },
+   "expect": {
+    "orders": 6,
+    "sales": 594,
+    "commission": 100
+   },
+   "rule": "R02",
+   "hint": "一笔通过、一笔驳回、一笔待审后只增加 1 单"
+  },
+  {
+   "do": "record_attendance",
+   "args": {
+    "emp": "$senior",
+    "date": "2026-07-21",
+    "status": "half"
+   },
+   "event": "D6 考勤：资深销售半天"
+  },
+  {
+   "do": "create_receivable",
+   "args": {
+    "amount": 100,
+    "date": "2026-07-21"
+   },
+   "as": "recv6",
+   "event": "D6 财务：应收 100"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$recv6",
+    "amount": 30,
+    "date": "2026-07-21"
+   },
+   "event": "D6 首款 30"
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$recv6"
+   },
+   "expect": {
+    "remaining": 70
+   },
+   "rule": "R08"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$recv6",
+    "amount": 71,
+    "date": "2026-07-21"
+   },
+   "expect_error": "REJECTED",
+   "rule": "R08",
+   "hint": "超收必须被拒绝"
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$recv6"
+   },
+   "expect": {
+    "remaining": 70
+   },
+   "rule": "R08",
+   "hint": "超收被拒后余额不变"
+  },
+  {
+   "do": "receive_payment",
+   "args": {
+    "receivable": "$recv6",
+    "amount": 70,
+    "date": "2026-07-21"
+   },
+   "event": "D6 尾款 70"
+  },
+  {
+   "check": "get_receivable",
+   "args": {
+    "receivable": "$recv6"
+   },
+   "expect": {
+    "remaining": 0
+   },
+   "rule": "R08"
+  },
+  {
+   "do": "record_expense",
+   "args": {
+    "amount": 65.5,
+    "date": "2026-07-21"
+   },
+   "event": "D6 财务：运营支出 65.50"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$senior",
+    "month": "2026-07"
+   },
+   "expect": {
+    "base": 382,
+    "bonus": 0,
+    "commission": 550,
+    "total": 932
+   },
+   "rule": "R05",
+   "hint": "A级：底薪按工作日有效出勤折算（半天 0.5），加逐日提成"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$growth",
+    "month": "2026-07"
+   },
+   "expect": {
+    "base": 478,
+    "bonus": 0,
+    "commission": 460,
+    "total": 938
+   },
+   "rule": "R05",
+   "hint": "按月末等级：C 前3个工作日×30 / B 6×88 / A 底薪折算"
+  },
+  {
+   "check": "get_ledger",
+   "args": {
+    "from": "2026-07-15",
+    "to": "2026-07-21"
+   },
+   "rule": "R10",
+   "hint": "D6 累计：流入 = 订单销售 + 回款；流出 = 费用 + 已发工资",
+   "expect_delta": {
+    "since": "L0",
+    "inflow": 8323,
+    "outflow": 528.5
+   }
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$hire0",
+    "date": "2026-07-15"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R01",
+   "hint": "账务复核"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$senior",
+    "date": "2026-07-15"
+   },
+   "expect": {
+    "orders": 3,
+    "sales": 297,
+    "commission": 30
+   },
+   "rule": "R01",
+   "hint": "账务复核"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-15"
+   },
+   "expect": {
+    "orders": 2,
+    "sales": 198,
+    "commission": 20
+   },
+   "rule": "R01",
+   "hint": "账务复核"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$hire0",
+    "month": "2026-07"
+   },
+   "expect": {
+    "base": 90,
+    "commission": 10,
+    "total": 100
+   },
+   "rule": "R03",
+   "hint": "当月入职C级：前3个工作日×30 + 1单提成"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$hire1",
+    "date": "2026-07-16"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R01",
+   "hint": "账务复核"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$senior",
+    "date": "2026-07-16"
+   },
+   "expect": {
+    "orders": 5,
+    "sales": 495,
+    "commission": 70
+   },
+   "rule": "R01",
+   "hint": "账务复核"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-16"
+   },
+   "expect": {
+    "orders": 2,
+    "sales": 198,
+    "commission": 20
+   },
+   "rule": "R01",
+   "hint": "账务复核"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$hire2",
+    "date": "2026-07-17"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R01",
+   "hint": "账务复核"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$senior",
+    "date": "2026-07-17"
+   },
+   "expect": {
+    "orders": 8,
+    "sales": 792,
+    "commission": 160
+   },
+   "rule": "R01",
+   "hint": "账务复核"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-17"
+   },
+   "expect": {
+    "orders": 2,
+    "sales": 198,
+    "commission": 20
+   },
+   "rule": "R01",
+   "hint": "账务复核"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$hire2",
+    "month": "2026-07"
+   },
+   "expect": {
+    "base": 90,
+    "commission": 10,
+    "total": 100
+   },
+   "rule": "R03",
+   "hint": "当月入职C级：前3个工作日×30 + 1单提成"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$hire3",
+    "date": "2026-07-18"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R01",
+   "hint": "账务复核"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$senior",
+    "date": "2026-07-18"
+   },
+   "expect": {
+    "orders": 3,
+    "sales": 297,
+    "commission": 30
+   },
+   "rule": "R01",
+   "hint": "账务复核"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-18"
+   },
+   "expect": {
+    "orders": 6,
+    "sales": 594,
+    "commission": 100
+   },
+   "rule": "R01",
+   "hint": "账务复核"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$hire3",
+    "month": "2026-07"
+   },
+   "expect": {
+    "base": 90,
+    "commission": 10,
+    "total": 100
+   },
+   "rule": "R03",
+   "hint": "当月入职C级：前3个工作日×30 + 1单提成"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$hire4",
+    "date": "2026-07-19"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R01",
+   "hint": "账务复核"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$senior",
+    "date": "2026-07-19"
+   },
+   "expect": {
+    "orders": 5,
+    "sales": 495,
+    "commission": 70
+   },
+   "rule": "R01",
+   "hint": "账务复核"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-19"
+   },
+   "expect": {
+    "orders": 6,
+    "sales": 594,
+    "commission": 100
+   },
+   "rule": "R01",
+   "hint": "账务复核"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$hire4",
+    "month": "2026-07"
+   },
+   "expect": {
+    "base": 90,
+    "commission": 10,
+    "total": 100
+   },
+   "rule": "R03",
+   "hint": "当月入职C级：前3个工作日×30 + 1单提成"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$hire5",
+    "date": "2026-07-20"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R01",
+   "hint": "账务复核"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$senior",
+    "date": "2026-07-20"
+   },
+   "expect": {
+    "orders": 8,
+    "sales": 792,
+    "commission": 160
+   },
+   "rule": "R01",
+   "hint": "账务复核"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-20"
+   },
+   "expect": {
+    "orders": 6,
+    "sales": 594,
+    "commission": 100
+   },
+   "rule": "R01",
+   "hint": "账务复核"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$hire6",
+    "date": "2026-07-21"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "rule": "R01",
+   "hint": "账务复核"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$senior",
+    "date": "2026-07-21"
+   },
+   "expect": {
+    "orders": 3,
+    "sales": 297,
+    "commission": 30
+   },
+   "rule": "R01",
+   "hint": "账务复核"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$growth",
+    "date": "2026-07-21"
+   },
+   "expect": {
+    "orders": 6,
+    "sales": 594,
+    "commission": 100
+   },
+   "rule": "R01",
+   "hint": "账务复核"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$hire6",
+    "month": "2026-07"
+   },
+   "expect": {
+    "base": 90,
+    "commission": 10,
+    "total": 100
+   },
+   "rule": "R03",
+   "hint": "当月入职C级：前3个工作日×30 + 1单提成"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$settle",
+    "date": "2026-07-15"
+   },
+   "expect": {
+    "orders": 5,
+    "sales": 495,
+    "commission": 70
+   },
+   "rule": "R01",
+   "hint": "账务复核"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$settle",
+    "month": "2026-07"
+   },
+   "expect": {
+    "commission": 70,
+    "total": 70
+   },
+   "rule": "R09",
+   "hint": "已发工资保持 70 元"
+  },
+  {
+   "check": "get_ledger",
+   "args": {
+    "from": "2026-07-15",
+    "to": "2026-07-21"
+   },
+   "rule": "R10",
+   "hint": "七日累计资金与 08 演练基线一致",
+   "expect_delta": {
+    "since": "L0",
+    "inflow": 8323,
+    "outflow": 528.5
+   }
+  }
+ ]
+}

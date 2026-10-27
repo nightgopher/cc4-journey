@@ -1,0 +1,168 @@
+{
+ "id": "L2-R02-01",
+ "layer": "L2",
+ "rules": [
+  "R02",
+  "R01"
+ ],
+ "title": "自录订单：待审、通过、重复审核、驳回、删除、重新提交",
+ "steps": [
+  {
+   "do": "hire",
+   "args": {
+    "name": "验收{run}-E",
+    "level": "trainee",
+    "date": "2026-07-01"
+   },
+   "as": "E"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$E",
+    "date": "2026-07-01",
+    "count": 1
+   }
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$E",
+    "date": "2026-07-01"
+   },
+   "as": "O1"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$E",
+    "date": "2026-07-01"
+   },
+   "as": "O2"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$E",
+    "date": "2026-07-01"
+   },
+   "as": "O3"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$E",
+    "date": "2026-07-01"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "hint": "三笔待审不计入"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$O1"
+   }
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$E",
+    "date": "2026-07-01"
+   },
+   "expect": {
+    "orders": 2,
+    "sales": 198,
+    "commission": 20
+   },
+   "hint": "通过一笔 +1 单"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$O1"
+   },
+   "expect_error": "REJECTED",
+   "hint": "重复审核必须被拒绝"
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$E",
+    "date": "2026-07-01"
+   },
+   "expect": {
+    "orders": 2,
+    "sales": 198,
+    "commission": 20
+   }
+  },
+  {
+   "do": "reject_order",
+   "args": {
+    "order": "$O2"
+   }
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$E",
+    "date": "2026-07-01"
+   },
+   "expect": {
+    "orders": 2,
+    "sales": 198,
+    "commission": 20
+   },
+   "hint": "驳回不计入"
+  },
+  {
+   "do": "delete_order",
+   "args": {
+    "order": "$O1"
+   }
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$E",
+    "date": "2026-07-01"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   },
+   "hint": "删除已通过订单，业绩回退"
+  },
+  {
+   "do": "submit_order",
+   "args": {
+    "emp": "$E",
+    "date": "2026-07-01"
+   },
+   "as": "O4"
+  },
+  {
+   "do": "approve_order",
+   "args": {
+    "order": "$O4"
+   }
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$E",
+    "date": "2026-07-01"
+   },
+   "expect": {
+    "orders": 2,
+    "sales": 198,
+    "commission": 20
+   }
+  }
+ ]
+}

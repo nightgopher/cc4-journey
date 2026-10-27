@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -16,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/nightgopher/cc4-journey/app/internal/repo"
 	"github.com/nightgopher/cc4-journey/app/internal/service"
+	"github.com/nightgopher/cc4-journey/app/internal/storage"
 )
 
 func (h *apiHandler) registerOrders(r chi.Router) {
@@ -29,18 +28,17 @@ func (h *apiHandler) registerOrders(r chi.Router) {
 	r.Get("/daily-performance/order-details/{id}/edit-history", h.orderHistory)
 	r.Get("/uploads/{name}", h.getUpload)
 }
-func uploadDir() string {
-	if dir := os.Getenv("UPLOAD_DIR"); dir != "" {
-		return dir
-	}
-	return "uploads"
-}
+func uploadDir() string { return storage.Root() }
 func readScreenshots(w http.ResponseWriter, r *http.Request) (map[string]string, func(), error) {
 	paths := []string{}
+	store, storeErr := storage.FromEnv(uploadDir())
 	cleanup := func() {
 		for _, p := range paths {
-			os.Remove(p)
+			store.Rollback(p)
 		}
+	}
+	if storeErr != nil {
+		return nil, func() {}, storage.ErrUnavailable
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 13<<20)
 	if err := r.ParseMultipartForm(12 << 20); err != nil {
@@ -70,14 +68,10 @@ func readScreenshots(w http.ResponseWriter, r *http.Request) (map[string]string,
 			return nil, cleanup, err
 		}
 		name := hex.EncodeToString(id) + ext
-		if err = os.MkdirAll(uploadDir(), 0700); err != nil {
+		if err = store.Put(r.Context(), name, b, http.DetectContentType(b)); err != nil {
 			return nil, cleanup, err
 		}
-		p := filepath.Join(uploadDir(), name)
-		if err = os.WriteFile(p, b, 0600); err != nil {
-			return nil, cleanup, err
-		}
-		paths = append(paths, p)
+		paths = append(paths, name)
 		urls[key] = "/uploads/" + name
 	}
 	return urls, cleanup, nil
@@ -96,7 +90,7 @@ func (h *apiHandler) submitSelfOrder(w http.ResponseWriter, r *http.Request) {
 		urls, clean, err := readScreenshots(w, r)
 		cleanup = clean
 		if err != nil {
-			writeErr(w, 400, err.Error())
+			writeUploadError(w, err)
 			return
 		}
 		in.EmployeeID, _ = strconv.Atoi(r.FormValue("employeeId"))
@@ -328,7 +322,7 @@ func (h *apiHandler) updateScreenshots(w http.ResponseWriter, r *http.Request) {
 	urls, cleanup, err := readScreenshots(w, r)
 	if err != nil {
 		cleanup()
-		writeErr(w, 400, err.Error())
+		writeUploadError(w, err)
 		return
 	}
 	success := false
@@ -412,5 +406,5 @@ func (h *apiHandler) getUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
-	http.ServeFile(w, r, filepath.Join(uploadDir(), name))
+	serveAttachment(w, r, name, "")
 }

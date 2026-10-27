@@ -108,6 +108,22 @@ func (p *PaddleClient) api(ctx context.Context, method, suffix string, body io.R
 }
 
 func (p *PaddleClient) Submit(ctx context.Context, path string) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", errors.New("票据文件不可读取")
+	}
+	defer file.Close()
+	raw, err := io.ReadAll(io.LimitReader(file, (8<<20)+1))
+	if err != nil {
+		return "", errors.New("票据文件不可读取")
+	}
+	return p.SubmitBytes(ctx, filepath.Base(path), raw)
+}
+
+func (p *PaddleClient) SubmitBytes(ctx context.Context, name string, raw []byte) (string, error) {
+	if len(raw) == 0 || len(raw) > 8<<20 {
+		return "", errors.New("票据为空或超过8MiB")
+	}
 	var body bytes.Buffer
 	w := multipart.NewWriter(&body)
 	_ = w.WriteField("model", p.Model)
@@ -119,16 +135,11 @@ func (p *PaddleClient) Submit(ctx context.Context, path string) (string, error) 
 	}
 	b, _ := json.Marshal(options)
 	_ = w.WriteField("optionalPayload", string(b))
-	file, err := os.Open(path)
-	if err != nil {
-		return "", errors.New("票据文件不可读取")
-	}
-	defer file.Close()
-	part, err := w.CreateFormFile("file", "receipt"+filepath.Ext(path))
+	part, err := w.CreateFormFile("file", "receipt"+filepath.Ext(name))
 	if err != nil {
 		return "", err
 	}
-	if _, err = io.Copy(part, io.LimitReader(file, (8<<20)+1)); err != nil {
+	if _, err = part.Write(raw); err != nil {
 		return "", err
 	}
 	_ = w.Close()

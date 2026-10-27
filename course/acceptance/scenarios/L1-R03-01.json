@@ -1,0 +1,32 @@
+{
+ "id": "L1-R03-01",
+ "layer": "L1",
+ "rules": [
+  "R03"
+ ],
+ "title": "C级入职当月领满 3 天固定工资",
+ "steps": [
+  {
+   "do": "hire",
+   "args": {
+    "name": "验收{run}-C",
+    "level": "c_level",
+    "date": "2026-02-02"
+   },
+   "as": "C"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$C",
+    "month": "2026-02"
+   },
+   "expect": {
+    "base": 90,
+    "commission": 0,
+    "total": 90
+   },
+   "hint": "C级前3个工作日×30元"
+  }
+ ]
+}

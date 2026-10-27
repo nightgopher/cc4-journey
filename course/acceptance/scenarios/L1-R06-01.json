@@ -1,0 +1,59 @@
+{
+ "id": "L1-R06-01",
+ "layer": "L1",
+ "rules": [
+  "R06",
+  "R03"
+ ],
+ "title": "晋升后历史月工资不变",
+ "steps": [
+  {
+   "do": "hire",
+   "args": {
+    "name": "验收{run}-H",
+    "level": "c_level",
+    "date": "2026-03-02"
+   },
+   "as": "H"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$H",
+    "month": "2026-03"
+   },
+   "expect": {
+    "base": 90,
+    "total": 90
+   }
+  },
+  {
+   "do": "promote",
+   "args": {
+    "emp": "$H",
+    "level": "b_level",
+    "date": "2026-04-28"
+   }
+  },
+  {
+   "do": "promote",
+   "args": {
+    "emp": "$H",
+    "level": "a_level",
+    "date": "2026-05-04"
+   }
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$H",
+    "month": "2026-03"
+   },
+   "expect": {
+    "base": 90,
+    "total": 90
+   },
+   "hint": "3月月末仍是C级，后来的晋升不能改写3月工资"
+  }
+ ]
+}

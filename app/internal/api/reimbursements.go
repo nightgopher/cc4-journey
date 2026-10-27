@@ -1,35 +1,23 @@
 package api
 
 import (
-	"bytes"
-	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"image"
-	_ "image/jpeg"
-	_ "image/png"
 	"io"
 	"net/http"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/nightgopher/cc4-journey/app/internal/repo"
 	"github.com/nightgopher/cc4-journey/app/internal/service"
+	"github.com/nightgopher/cc4-journey/app/internal/storage"
 )
 
-var receiptSlots = make(chan struct{}, 2)
-var receiptPages = regexp.MustCompile(`(?m)^Pages:\s+([0-9]+)`)
 var receiptFileName = regexp.MustCompile(`^[a-f0-9]{32}\.(png|jpg|pdf)$`)
+var receiptSlots = make(chan struct{}, 2)
 
 func (h *apiHandler) registerReimbursements(r chi.Router) {
 	r.Get("/reimbursements/config", h.reimbursementConfig)
@@ -54,6 +42,10 @@ func reimbursementActor(r *http.Request) (repo.ClaimActor, error) {
 	return repo.ClaimActor{ID: e.ID, Role: role, TeamID: e.TeamID}, nil
 }
 func reimbursementError(w http.ResponseWriter, err error) {
+	if errors.Is(err, storage.ErrUnavailable) {
+		writeErr(w, 503, err.Error())
+		return
+	}
 	if errors.Is(err, repo.ErrClaimConflict) {
 		writeErr(w, 409, err.Error())
 		return
@@ -150,80 +142,11 @@ func (h *apiHandler) uploadReimbursement(w http.ResponseWriter, r *http.Request)
 		writeErr(w, 400, "票据为空或超过8MiB")
 		return
 	}
-	mime := http.DetectContentType(raw)
-	extension := ""
-	switch mime {
-	case "image/png", "image/jpeg":
-		config, _, e := image.DecodeConfig(bytes.NewReader(raw))
-		if e != nil || config.Width <= 0 || config.Height <= 0 || int64(config.Width)*int64(config.Height) > 20_000_000 {
-			writeErr(w, 400, "图片无效或超过2000万像素")
-			return
-		}
-		if _, _, e = image.Decode(bytes.NewReader(raw)); e != nil {
-			writeErr(w, 400, "图片内容损坏，请重新上传")
-			return
-		}
-		extension = ".png"
-		if mime == "image/jpeg" {
-			extension = ".jpg"
-		}
-	case "application/pdf":
-		extension = ".pdf"
-	default:
-		writeErr(w, 400, "只支持PNG、JPEG或单页PDF票据")
-		return
-	}
-	var random [16]byte
-	if _, err = rand.Read(random[:]); err != nil {
-		writeErr(w, 500, "文件保存失败")
-		return
-	}
-	name := hex.EncodeToString(random[:]) + extension
-	directory := filepath.Join(uploadDir(), "receipts")
-	if err = os.MkdirAll(directory, 0700); err != nil {
-		writeErr(w, 500, "文件保存失败")
-		return
-	}
-	path := filepath.Join(directory, name)
-	if err = os.WriteFile(path, raw, 0600); err != nil {
-		writeErr(w, 500, "文件保存失败")
-		return
-	}
-	keep := false
-	defer func() {
-		if !keep {
-			_ = os.Remove(path)
-		}
-	}()
-	if extension == ".pdf" {
-		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-		defer cancel()
-		cmd := exec.CommandContext(ctx, "pdfinfo", path)
-		cmd.Env = append(os.Environ(), "LC_ALL=C")
-		info, e := cmd.Output()
-		pages := receiptPages.FindSubmatch(info)
-		if e != nil || len(pages) != 2 {
-			writeErr(w, 400, "PDF无法读取，请换成清晰图片或有效单页PDF")
-			return
-		}
-		count, _ := strconv.Atoi(string(pages[1]))
-		if count != 1 {
-			writeErr(w, 400, "每笔报销只接收单页票据，请拆分PDF")
-			return
-		}
-	}
-	client, e := service.PaddleFromEnv()
-	model := service.PaddleModels[0]
-	if client != nil {
-		model = client.Model
-	}
-	hash := sha256.Sum256(raw)
-	id, err := repo.CreateClaim(r.Context(), a, name, mime, hex.EncodeToString(hash[:]), model, e == nil && client.Configured())
+	id, err := service.CreateReimbursement(r.Context(), a, raw)
 	if err != nil {
 		reimbursementError(w, err)
 		return
 	}
-	keep = true
 	row, err := repo.Claim(r.Context(), a, id)
 	if err != nil {
 		reimbursementError(w, err)
@@ -341,7 +264,7 @@ func (h *apiHandler) reimbursementReceipt(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Cache-Control", "private, no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Disposition", `inline; filename="receipt`+filepath.Ext(file)+`"`)
-	http.ServeFile(w, r, filepath.Join(uploadDir(), "receipts", file))
+	serveAttachment(w, r, "receipts/"+file, mime)
 }
 func (h *apiHandler) reimbursementEvents(w http.ResponseWriter, r *http.Request) {
 	a, err := reimbursementActor(r)

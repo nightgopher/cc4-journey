@@ -15,6 +15,7 @@ import (
 	"github.com/nightgopher/cc4-journey/app/internal/api"
 	"github.com/nightgopher/cc4-journey/app/internal/repo"
 	"github.com/nightgopher/cc4-journey/app/internal/service"
+	"github.com/nightgopher/cc4-journey/app/internal/storage"
 )
 
 // 与存量 docker-compose 默认值一致的环境变量约定：
@@ -22,6 +23,14 @@ import (
 var version = "dev"
 
 func main() {
+	store, err := storage.FromEnv(storage.Root())
+	if err != nil {
+		log.Fatal(err)
+	}
+	if len(os.Args) > 1 && os.Args[1] == "migrate-attachments" {
+		migrateAttachments(store, os.Args[2:])
+		return
+	}
 	_ = os.Setenv("CC4_RELEASE_SHA", version)
 	port := os.Getenv("PORT")
 	if port == "" {

@@ -1,0 +1,165 @@
+{
+ "id": "L1-R01-01",
+ "layer": "L1",
+ "rules": [
+  "R01",
+  "R06"
+ ],
+ "title": "日提成阶梯 1/3/4/5/6/8 单与实习生月工资",
+ "steps": [
+  {
+   "do": "hire",
+   "args": {
+    "name": "验收{run}-T",
+    "level": "trainee",
+    "date": "2026-01-01"
+   },
+   "as": "T"
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$T",
+    "date": "2026-01-01",
+    "count": 1
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$T",
+    "date": "2026-01-02",
+    "count": 3
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$T",
+    "date": "2026-01-05",
+    "count": 4
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$T",
+    "date": "2026-01-06",
+    "count": 5
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$T",
+    "date": "2026-01-07",
+    "count": 6
+   }
+  },
+  {
+   "do": "record_orders",
+   "args": {
+    "emp": "$T",
+    "date": "2026-01-08",
+    "count": 8
+   }
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$T",
+    "date": "2026-01-01"
+   },
+   "expect": {
+    "orders": 1,
+    "sales": 99,
+    "commission": 10
+   }
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$T",
+    "date": "2026-01-02"
+   },
+   "expect": {
+    "orders": 3,
+    "sales": 297,
+    "commission": 30
+   }
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$T",
+    "date": "2026-01-05"
+   },
+   "expect": {
+    "orders": 4,
+    "sales": 396,
+    "commission": 50
+   }
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$T",
+    "date": "2026-01-06"
+   },
+   "expect": {
+    "orders": 5,
+    "sales": 495,
+    "commission": 70
+   }
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$T",
+    "date": "2026-01-07"
+   },
+   "expect": {
+    "orders": 6,
+    "sales": 594,
+    "commission": 100
+   }
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$T",
+    "date": "2026-01-08"
+   },
+   "expect": {
+    "orders": 8,
+    "sales": 792,
+    "commission": 160
+   }
+  },
+  {
+   "check": "get_daily",
+   "args": {
+    "emp": "$T",
+    "date": "2026-01-09"
+   },
+   "expect": {
+    "orders": 0,
+    "sales": 0,
+    "commission": 0
+   },
+   "hint": "没有订单的日子提成为 0"
+  },
+  {
+   "check": "get_salary",
+   "args": {
+    "emp": "$T",
+    "month": "2026-01"
+   },
+   "expect": {
+    "commission": 420,
+    "total": 420
+   },
+   "hint": "实习生月工资 = 当月每日提成之和"
+  }
+ ]
+}
