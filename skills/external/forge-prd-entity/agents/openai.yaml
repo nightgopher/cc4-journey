@@ -1,0 +1,4 @@
+interface:
+  display_name: "PRD 锻造台·实体推导版"
+  short_description: "B 端 PRD 三阶段：需求梳理 → 文字版 PRD → 原型图文 PRD（Word / 飞书）"
+  default_prompt: "使用 $forge-prd-entity 推进这份 B 端需求：先判断所处阶段（需求梳理、文字版 PRD 或图文 PRD），完成当前阶段的产出并列出待决策项；从业务对象、状态和权限推导页面规则，保留已确认的内容和文档版式。"

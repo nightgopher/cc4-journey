@@ -28,10 +28,11 @@
 
 ## 3. 培训文档引用的外部技能（`external/`）
 
-> 来源：《AI 全栈开发方法与实践》培训文档（飞书）3.1–3.2 节引用的开源 Skills。课程附带的 zip 包（forge-prd-entity v2.0、frontend-skill、ui-library-selector 完整包）因 Drive API 权限暂未能下载，其中两个已从其公开 GitHub 仓库获取，forge-prd-entity 本地已有安装副本。
+> 来源：《AI 全栈开发方法与实践》培训文档 3.1–3.2 节引用的开源 Skills（培训文档已全文沉淀至 [`course/ai-fullstack-dev-training.md`](../course/ai-fullstack-dev-training.md)，[飞书原文](https://cheetah-mobile.feishu.cn/docx/HQ61dgbA1o9zwxxjqIJcGpMDnqg)）。课程附带的 zip 包（forge-prd-entity v2.0、frontend-skill、ui-library-selector 完整包）因 Drive API 权限暂未能下载，其中两个已从其公开 GitHub 仓库获取，forge-prd-entity 已从本地安装副本复制入库。
 
 | 技能 | 来源仓库 | 用途（培训文档 3.x 节） |
 |-|-|-|
+| `external/forge-prd-entity` | 课程完整包 v2.0（本地副本入库） | 3.1 需求梳理 → 文字版 PRD → 图文 PRD 三阶段，阶段关口推进 |
 | `external/anthropic-official/skills/frontend-design` | anthropics/skills | 3.2.1 界面设计：为页面形成明确的设计方向，避免通用模板脸 |
 | `external/anthropic-official/skills/canvas-design` | anthropics/skills | 3.2.1 静态视觉素材（海报/封面 PNG/PDF） |
 | `external/anthropic-official/skills/web-artifacts-builder` | anthropics/skills | 3.2.3 在 Claude 中交付多组件交互演示 artifact |
@@ -44,13 +45,12 @@
 
 - **ui-ux-pro-max**：https://github.com/nextlevelbuilder/ui-ux-pro-max-skill （3.2.1 建立可复用设计规则 MASTER.md）
 - **self-evolution / grilling 等工程质量与思维工具集合**：课程内部 Skill 包（其中 grilling 已从 mattpocock/skills 收录，两者同源）
-- **forge-prd-entity v2.0**：课程完整包，本地已安装（`~/.easycode-user/skills/forge-prd-entity`），如需入库可从本地目录复制
 
 ### 课程 zip 包下载状态
 
 | 包 | 获取方式 | 状态 |
 |-|-|-|
-| forge-prd-entity v2.0.zip | 飞书附件 token BAI5b2pcAoWmsXxrll2cQm0vnrI | 未能下载（bot 缺 drive:file:download 权限）；本地已有安装副本 |
+| forge-prd-entity v2.0.zip | 飞书附件 token BAI5b2pcAoWmsXxrll2cQm0vnrI | zip 未能下载（bot 缺 drive:file:download 权限）；已从本地安装副本复制入库（2026-10-27） |
 | frontend-skill.zip | 飞书附件 token AlBqbQXKZoV1mZxme40cZJXUnZj | 未能下载（同上）；功能与 anthropic frontend-design 重叠 |
 | ui-library-selector.zip | 飞书附件 token VoSFbFDNfoIRbCxv2KmcISQCnSb | 未能下载（同上）；已从作者公开仓库获取 |
 

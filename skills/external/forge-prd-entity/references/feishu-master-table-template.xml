@@ -1,0 +1,49 @@
+<!--
+  Native two-column sample, not a finished PRD.
+  Repeat the heading/introduction/table per architecture branch; use one table
+  only when explicitly selected. Replace/remove all drafting placeholders.
+  Heading levels h3/h4 are semantic styles; do not invent font-size attributes.
+  Left: hierarchy stays at top; adjust only minimal spacing for feature-title
+  centering after rendering. Do not vertically center the entire cell or insert
+  a fixed wall of blank lines. Right: actual image token then useful explanation.
+-->
+<fragment>
+  <h1>3. 产品设计</h1>
+  <h2>3.1 [架构分支名称]</h2>
+  <ul>
+    <li>[简要介绍这个模块做什么。]</li>
+    <li>[如有多种模式，在这里简要说明共有能力和差异。]</li>
+  </ul>
+  <table>
+    <thead>
+      <tr>
+        <th><p>功能</p></th>
+        <th><p>原型图与功能说明</p></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <h3>[一级能力 / 二级能力 / 功能归属]</h3>
+          <p></p>
+          <h4 align="center">[功能名称]</h4>
+        </td>
+        <td>
+          <p><b color="red">原型图</b></p>
+          <img src="[真实图片token]" />
+          <p><b color="red">功能与效果</b> [说明真实输入、行为和结果。]</p>
+          <p><b color="red">交互逻辑</b> [仅在存在需要解释的交互时保留。]</p>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <h3>[一级能力 / 通用能力 / 自动处理]</h3>
+          <h4 align="center">[无独立界面的自动能力]</h4>
+        </td>
+        <td>
+          <p><b color="red">功能与效果</b> [自动能力可只写有信息量的说明，不伪造原型图，也不补齐无意义字段。]</p>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</fragment>
