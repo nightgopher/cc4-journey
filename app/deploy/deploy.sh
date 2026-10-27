@@ -10,6 +10,7 @@ else
   echo 'Only deploy <40-character commit SHA> is accepted.' >&2
   exit 64
 fi
+cd /
 base=/opt/cc4
 exec 9>"$base/.deploy.lock"
 flock -w 120 9

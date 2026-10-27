@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 umask 077
+cd /var/lib/cc4
 backup_root=/var/lib/cc4/backups
 backup_dir=$(mktemp -d "$backup_root/$(date -u +%Y%m%dT%H%M%SZ).XXXXXX")
 trap 'rm -f "$backup_dir/.incomplete"' EXIT
