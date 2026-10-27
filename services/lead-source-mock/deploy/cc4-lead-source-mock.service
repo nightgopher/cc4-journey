@@ -1,0 +1,24 @@
+[Unit]
+Description=CC4 synthetic upstream lead source
+After=network.target
+
+[Service]
+Type=simple
+User=cc4-lead-mock
+Group=cc4-lead-mock
+WorkingDirectory=/opt/cc4-lead-source-mock
+EnvironmentFile=/etc/cc4-lead-source-mock.env
+ExecStart=/opt/cc4-lead-source-mock/current/lead-source-mock
+Restart=on-failure
+RestartSec=2
+TimeoutStopSec=40
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+UMask=0077
+MemoryMax=128M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

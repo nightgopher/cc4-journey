@@ -1,0 +1,26 @@
+{
+  "openapi": "3.1.0",
+  "info": {"title": "CC4 独立上游线索模拟服务", "version": "1.0.0", "description": "全部数据为合成记录。兼容 Gooki 登录及分页外呼接口。手机号以 000 开头，不用于拨打。"},
+  "servers": [{"url": "."}],
+  "paths": {
+    "/health": {"get": {"summary": "服务健康及部署版本", "responses": {"200": {"description": "包含 status、mock、revision、recordsPerDay、timezone"}}}},
+    "/token": {
+      "get": {"summary": "兼容上游的查询参数登录", "parameters": [{"in":"query","name":"username","required":true,"schema":{"type":"string"}},{"in":"query","name":"password","required":true,"schema":{"type":"string","format":"password"}}],"responses":{"200":{"description":"code=200，data.token，data.expiresIn，data.expiresAt"},"401":{"description":"账号无效"}}},
+      "post": {"summary": "JSON 登录", "requestBody":{"required":true,"content":{"application/json":{"schema":{"type":"object","required":["username","password"],"properties":{"username":{"type":"string"},"password":{"type":"string","format":"password"}}}}}},"responses":{"200":{"description":"data.token"},"401":{"description":"账号无效"}}}
+    },
+    "/task/cdr/all2": {"get": {
+      "summary":"分页获取指定日期范围的模拟外呼记录",
+      "security":[{"UpstreamToken":[]}],
+      "parameters":[
+        {"in":"query","name":"page","schema":{"type":"integer","minimum":1,"maximum":100000,"default":1}},
+        {"in":"query","name":"pageSize","schema":{"type":"integer","minimum":1,"maximum":500,"default":100}},
+        {"in":"query","name":"startTime","required":true,"schema":{"type":"string"},"description":"YYYY-MM-DD、YYYY-MM-DD HH:mm:ss、RFC3339"},
+        {"in":"query","name":"endTime","required":true,"schema":{"type":"string"},"description":"包含结束时间；纯日期包含整天。最多31个自然日。"},
+        {"in":"query","name":"scenario","schema":{"type":"string","enum":["normal","empty","error","slow"]}}
+      ],
+      "responses":{"200":{"description":"code=200，mock=true，data.totalCount 与 data.data 数组。记录含数字 id、customerName、realPhone、phone、grade、duration、秒级 callTime、audio、city、province。"},"400":{"description":"分页或日期无效"},"401":{"description":"令牌无效或过期"},"502":{"description":"error 场景模拟上游失败"}}
+    }},
+    "/scenarios": {"get":{"summary":"列出可用模拟场景","responses":{"200":{"description":"normal、empty、error、slow 与默认场景"}}}}
+  },
+  "components":{"securitySchemes":{"UpstreamToken":{"type":"apiKey","in":"header","name":"Authorization","description":"使用原始 token 或 Bearer token，令牌默认有效1小时。"}}}
+}
