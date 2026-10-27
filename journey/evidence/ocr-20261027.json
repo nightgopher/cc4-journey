@@ -1,0 +1,137 @@
+{
+  "feature": "PaddleOCR reimbursement",
+  "verifiedAt": "2026-10-27T13:44:48.350066+00:00",
+  "source": {
+    "revision": "a774812fd1af95edba178c44d2c594455a66356d",
+    "dirty": false
+  },
+  "deploy": {
+    "status": "success",
+    "url": "https://github.com/nightgopher/cc4-journey/actions/runs/40511109706"
+  },
+  "studentAcceptance": {
+    "status": "passed",
+    "url": "https://github.com/nightgopher/cc4-journey/actions/runs/40512051699",
+    "stageCount": 16,
+    "stages": [
+      "tool-versions",
+      "database-create",
+      "database-start",
+      "go-tests",
+      "go-vet",
+      "release-tests",
+      "simulation-safety",
+      "verification-tests",
+      "migration-database",
+      "migration-tests",
+      "api-integration",
+      "business-simulation",
+      "frontend-install",
+      "frontend-format",
+      "frontend-dates",
+      "frontend-build"
+    ],
+    "cleanup": "passed",
+    "evidence": {
+      "business": {
+        "status": "passed",
+        "through": "2026-10-27",
+        "summary": {
+          "days": 7,
+          "employees": 12,
+          "checks": 831,
+          "events": 105
+        },
+        "money": {
+          "sales": 7623.0,
+          "inflow": 8323.0,
+          "outflow": 528.5,
+          "net": 7794.5
+        }
+      },
+      "httpIntegrationGroups": 19,
+      "mcpBusinessIntegration": "passed",
+      "mcpAuthorizationIntegration": "passed",
+      "idempotency": "passed",
+      "unrelatedData": "preserved",
+      "oneYuanFaultDetected": true,
+      "ocrReimbursement": {
+        "concurrentPayments": 6,
+        "duplicateInvoice": "rejected",
+        "duplicateReceipt": "rejected",
+        "expenseAmount": 125.5,
+        "expenseCount": 1,
+        "model": "PaddleOCR-VL-1.6",
+        "privacy": "passed",
+        "staleDecision": "rejected",
+        "staleWorker": "rejected",
+        "status": "passed",
+        "supplierMode": "HTTP contract mock",
+        "uncertainSubmission": "not replayed"
+      }
+    }
+  },
+  "realSupplierAndBusinessFlow": {
+    "status": "passed",
+    "mode": "real PaddleOCR cloud service",
+    "model": "PaddleOCR-VL-1.6",
+    "claimId": 1,
+    "invoiceNumber": "QA-OCR-20261027-1255",
+    "claimVersion": 6,
+    "ocrStatus": "ready",
+    "claimStatus": "paid",
+    "amount": 125.5,
+    "expenseId": 257,
+    "replayRequestsInRecordedRun": 2,
+    "paymentReplay": "same expense and version",
+    "otherEmployeeDetail": 403,
+    "otherEmployeeReceipt": 403,
+    "anonymousReceipt": 401,
+    "events": [
+      "uploaded",
+      "ocr_ready",
+      "updated",
+      "submit",
+      "approve",
+      "pay"
+    ],
+    "businessReport": {
+      "status": "passed",
+      "through": "2026-10-27",
+      "summary": {
+        "days": 7,
+        "employees": 12,
+        "checks": 831,
+        "events": 104
+      },
+      "money": {
+        "sales": 7623.0,
+        "inflow": 8323.0,
+        "outflow": 528.5,
+        "net": 7794.5
+      }
+    },
+    "database": {
+      "expenseCount": 1,
+      "expenseAmount": 125.5,
+      "expenseId": 257
+    },
+    "deployedRevision": "a774812fd1af95edba178c44d2c594455a66356d",
+    "verifiedAt": "2026-10-27T13:44:48.350066+00:00"
+  },
+  "browser": {
+    "desktop": "1440 x 1100",
+    "mobile": {
+      "viewport": 390,
+      "documentWidth": 390
+    },
+    "localRefreshFailure": {
+      "oldAmountVisible": false,
+      "oldReceiptVisible": false,
+      "writeActionsVisible": false,
+      "retryRestoresDetail": true
+    },
+    "unsavedEdits": "Escape warns; continue editing preserves input"
+  },
+  "scope": "Synthetic receipts only. CI supplier is an HTTP contract mock; cloud flow uses real PaddleOCR-VL-1.6. Payments are demo bookkeeping."
+}
