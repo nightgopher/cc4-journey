@@ -14,6 +14,7 @@ import {
 } from "../components/kit";
 import { collection, download, queryString, request, Row } from "../lib/api";
 import { LEVEL_ZH, money } from "../lib/tokens";
+import { MCPAccess } from "../components/mcp-access";
 import {
   ActionDialog,
   amountColumn,
@@ -1416,6 +1417,7 @@ export function ProfilePage() {
           ))}
         </dl>
       </section>
+      <MCPAccess />
       {password && (
         <ActionDialog
           title="修改登录密码"

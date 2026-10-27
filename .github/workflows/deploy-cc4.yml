@@ -70,7 +70,8 @@ jobs:
           python3 -m unittest discover -s deploy -p 'test_migrations.py'
           psql -h 127.0.0.1 -U root -d cc4_test_ci -v ON_ERROR_STOP=1 -f migrations/000_baseline_schema.sql > /dev/null
           psql -h 127.0.0.1 -U root -d cc4_test_ci -v ON_ERROR_STOP=1 -f migrations/001_go_completion.sql > /dev/null
-          go test -race ./internal/api -run 'Test(BusinessIntegration|MCPBusinessIntegration)$' -count=1 -v
+          psql -h 127.0.0.1 -U root -d cc4_test_ci -v ON_ERROR_STOP=1 -f migrations/003_mcp_credentials.sql > /dev/null
+          go test -race ./internal/api -run 'Test(BusinessIntegration|MCPBusinessIntegration|MCPAuthorizationIntegration)$' -count=1 -v
       - name: Replay seven days through real HTTP APIs
         working-directory: app
         env:

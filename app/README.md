@@ -44,7 +44,8 @@ VITE_API_BASE_URL=http://localhost:3101/api/v1 npm run dev -- --host 127.0.0.1 -
 | GOOKI_HOST / GOOKI_USERNAME / GOOKI_PASSWORD | 可选外呼同步服务配置；缺失时同步接口明确提示未配置 |
 | GOOKI_FILTER_PREFIX | 可选呼叫结果前缀筛选 |
 | VITE_API_BASE_URL | 前端构建/开发使用的 API 地址 |
-| MCP_HTTP_ADDR / MCP_TOKEN | MCP HTTP 监听地址与 Bearer 凭据；未设置监听地址时走 stdio |
+| MCP_HTTP_ADDR / CC4_MCP_TOKEN | 独立 MCP HTTP 监听地址；stdio 使用所连数据库签发的个人 Token |
+| MCP_PUBLIC_URL / MCP_ALLOWED_ORIGINS | 生成配置使用的可信远程 URL / 浏览器 Origin 白名单 |
 
 每天业务时区 01:00 生成前一日默认考勤，02:00 执行等级检查和月汇总；手工、请假考勤不会被业绩自动同步覆盖。应用提供手工触发接口，权限与页面一致。
 
@@ -68,14 +69,14 @@ npm run build
 
 ## MCP
 
-云端 Agent 使用 **Streamable HTTP**：`https://150.5.143.32/mcp`，与工作台连接同一套云端业务数据库，需独立 Bearer 集成凭据。主应用直接挂载该端点，未配置 `MCP_TOKEN` 时不开放。7 个工具、客户端配置、权限范围与验证命令见 [MCP 接入说明](MCP.md)。
+云端 Agent 使用 **Streamable HTTP**：`https://150.5.143.32/mcp`，与工作台连接同一套云端业务数据库，需在个人中心生成绑定账号的长期、可撤销 Bearer Token。主应用直接挂载该端点，工具与数据范围跟随账号当前权限，旧全局 `MCP_TOKEN` 不再生效。7 个工具、客户端配置、权限范围与验证命令见 [MCP 接入说明](MCP.md)。
 
 以下保留本地 stdio 程序的构建方式：
 
 ```sh
 cd app
 go build -o bin/cc4-mcp ./cmd/cc4-mcp
-./bin/cc4-mcp
+CC4_MCP_TOKEN=<该数据库签发的个人Token> ./bin/cc4-mcp
 ```
 
 以 MCP 客户端启动该进程，stdout 专用于协议。HTTP 模式使用环境变量 `MCP_HTTP_ADDR`，工具包括薪资预览、提成预览、等级判断、员工/工作日查询、业绩录入与订单审核。写工具沿用业务事务与审计。

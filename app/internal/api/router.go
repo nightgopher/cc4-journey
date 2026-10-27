@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/golang-jwt/jwt/v5"
 
+	businessaccess "github.com/nightgopher/cc4-journey/app/internal/access"
 	ccmcp "github.com/nightgopher/cc4-journey/app/internal/mcp"
 	"github.com/nightgopher/cc4-journey/app/internal/repo"
 	"github.com/nightgopher/cc4-journey/app/internal/service"
@@ -65,7 +66,7 @@ func Router(jwtSecret string) http.Handler {
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "OK", "timestamp": time.Now().UTC().Format(time.RFC3339Nano), "revision": os.Getenv("CC4_RELEASE_SHA")})
 	})
-	r.Handle("/mcp", ccmcp.HTTPHandler(os.Getenv("MCP_TOKEN")))
+	r.Handle("/mcp", ccmcp.HTTPHandler())
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// 公开端点
@@ -108,6 +109,7 @@ func Router(jwtSecret string) http.Handler {
 			h.registerWechat(r)
 			h.registerAttendance(r)
 			h.registerLookups(r)
+			h.registerMCPCredentials(r)
 			r.Get("/dashboard/today", h.dashboardToday)
 			r.Get("/dashboard/trend", h.dashboardTrend)
 		})
@@ -254,24 +256,13 @@ func (h *apiHandler) auth(next http.Handler) http.Handler {
 		}
 		claims := tok.Claims.(*AuthClaims)
 
-		var role, status string
-		err = repo.Pool.QueryRow(r.Context(),
-			`SELECT role, status FROM users WHERE id = $1`, claims.UserID).Scan(&role, &status)
+		principal, err := businessaccess.Load(r.Context(), claims.UserID)
 		if err != nil {
-			writeErr(w, http.StatusUnauthorized, "用户不存在")
-			return
-		}
-		if status != "active" {
-			writeErr(w, http.StatusUnauthorized, "账户已被停用")
-			return
-		}
-		var inactive bool
-		if err = repo.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM employees WHERE user_id=$1 AND status!='active')`, claims.UserID).Scan(&inactive); err != nil || inactive {
-			writeErr(w, 401, "员工已离职或被暂停")
+			writeErr(w, 401, "账户已停用或员工已离职")
 			return
 		}
 		// 注入上下文（对齐旧 req.userId / req.userRole）。
-		ctx := withUser(r.Context(), claims.UserID, role)
+		ctx := businessaccess.WithPrincipal(withUser(r.Context(), claims.UserID, principal.Role), principal)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -712,7 +703,7 @@ func (h *apiHandler) submitPerformance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 对齐旧通道权限：admin/hr/manager（employee 自录走 pending_approval 明细，此处对齐管理员分支）
-	if role != "admin" && role != "hr" && role != "manager" && role != "workplace_manager" {
+	if !businessaccess.CanManagePerformance(role) {
 		writeErr(w, http.StatusForbidden, "无权限代录业绩（employee 请走自录通道）")
 		return
 	}
@@ -752,7 +743,7 @@ func (h *apiHandler) submitPerformance(w http.ResponseWriter, r *http.Request) {
 
 func (h *apiHandler) approveOrderDetail(w http.ResponseWriter, r *http.Request) {
 	uid, role := mustUser(r.Context())
-	if role != "admin" && role != "hr" && role != "manager" && role != "workplace_manager" {
+	if !businessaccess.CanManagePerformance(role) {
 		writeErr(w, http.StatusForbidden, "无权限审核业绩")
 		return
 	}

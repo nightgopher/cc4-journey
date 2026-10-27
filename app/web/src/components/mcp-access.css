@@ -1,0 +1,26 @@
+.agent-access .section-heading {
+  padding: 0 0 12px;
+}
+.agent-access .actions {
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+.agent-access-note {
+  color: var(--ink-soft, #53647e);
+  line-height: 1.7;
+  margin: 10px 0;
+}
+.agent-access-config {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  min-height: 230px;
+}
+.agent-access-config-field {
+  grid-column: 1 / -1;
+}
+@media (max-width: 600px) {
+  .agent-access .actions > button {
+    flex: 1 1 150px;
+  }
+}
