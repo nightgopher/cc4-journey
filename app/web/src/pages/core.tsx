@@ -900,9 +900,19 @@ export function SalaryPage() {
     {
       key: "employee_id",
       title: "员工",
-      render: (r) =>
-        text(employees.find((e) => e.id === r.employee_id) ?? {}, "name") ||
-        `员工 ${text(r, "employee_id")}`,
+      render: (r) => {
+        const name =
+          text(r, "employee_name") ||
+          text(employees.find((e) => e.id === r.employee_id) ?? {}, "name") ||
+          `员工 ${text(r, "employee_id")}`;
+        return text(r, "employee_status") === "inactive" ? (
+          <>
+            {name} <span className="muted">（已离职）</span>
+          </>
+        ) : (
+          name
+        );
+      },
     },
     {
       key: "period",
@@ -957,8 +967,12 @@ export function SalaryPage() {
     <>
       <DataTablePage
         key={month}
-        title="薪资管理"
-        description="核对每月工资与计算依据，登记发放后同步财务支出。"
+        title={manage ? "薪资管理" : "我的工资"}
+        description={
+          manage
+            ? "核对每月工资与计算依据，登记发放后同步财务支出。"
+            : "查看每月工资构成与发放状态；对金额有疑问，点「计算明细」核对依据。"
+        }
         columns={cols}
         fetchPage={load}
         refreshKey={version}
